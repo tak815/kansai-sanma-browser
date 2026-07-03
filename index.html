@@ -3,22 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>関西三麻ブラウザゲーム</title>
-
     <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
 
 <div id="game">
 
     <header id="header">
         <h1>関西三麻ブラウザゲーム</h1>
-
-        <div id="version">
-            Version v0.2
-        </div>
+        <div id="version">Version v0.3</div>
     </header>
 
     <main id="table">
@@ -32,33 +26,27 @@
         </div>
 
         <div id="center">
-
-            <div id="wall">
-                山
-            </div>
+            <div id="wall">山</div>
 
             <div id="info">
                 <div>局：東1局</div>
-                <div>本場：0</div>
-                <div>供託：0</div>
+                <div>山残り：<span id="wall-count">0</span></div>
+                <div>状態：<span id="game-status">準備中</span></div>
             </div>
-
         </div>
 
         <div id="bottom-player" class="player self">
-
             <div class="player-name">自家</div>
-
-            <div id="hand">
-
-            </div>
-
+            <div id="hand"></div>
         </div>
 
     </main>
 
 </div>
 
+<script src="js/tile.js"></script>
+<script src="js/wall.js"></script>
+<script src="js/game.js"></script>
 <script src="js/main.js"></script>
 
 </body>
