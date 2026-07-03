@@ -1,7 +1,7 @@
 "use strict";
 
 const Game = {
-    version: "0.6",
+    version: "0.7",
 
     seatOrder: ["east", "south", "west", "north"],
     seats: {
@@ -11,16 +11,30 @@ const Game = {
         north: null
     },
 
+    dealerSeat: "east",
     emptySeat: "south",
     turnSeat: "east",
+    roundName: "東1局",
     status: "準備中",
 
     start() {
         Wall.create();
 
+        this.dealerSeat = "east";
         this.emptySeat = this.decideEmptySeat();
-        this.turnSeat = "east";
+        this.turnSeat = this.dealerSeat;
+        this.roundName = "東1局";
 
+        this.createPlayers();
+        this.dealInitialHands();
+
+        this.currentPlayer().draw(Wall.draw());
+
+        this.status = `${this.seatLabel(this.turnSeat)}の手番です。牌をクリックして打牌してください。`;
+        UI.render(this);
+    },
+
+    createPlayers() {
         this.seats = {
             east: new Player("自分", "human", "東"),
             south: null,
@@ -39,7 +53,9 @@ const Game = {
         if (this.emptySeat !== "north") {
             this.seats.north = new Player("CPU北", "cpu", "北");
         }
+    },
 
+    dealInitialHands() {
         this.status = "配牌中";
 
         for (let i = 0; i < 13; i++) {
@@ -47,15 +63,14 @@ const Game = {
                 player.draw(Wall.draw());
             });
         }
-
-        this.currentPlayer().draw(Wall.draw());
-        this.status = "東家の手番です。牌をクリックして打牌してください。";
-
-        UI.render(this);
     },
 
     decideEmptySeat() {
-        const candidates = ["south", "west", "north"];
+        if (Rules.emptySeat !== "random") {
+            return Rules.emptySeat;
+        }
+
+        const candidates = Rules.getEmptySeatCandidates();
         const index = Math.floor(Math.random() * candidates.length);
         return candidates[index];
     },
@@ -111,13 +126,12 @@ const Game = {
         const tile = Wall.draw();
 
         if (!tile) {
-            this.status = "流局：山がありません";
-            UI.render(this);
+            this.endDraw();
             return;
         }
 
         this.currentPlayer().draw(tile);
-        this.status = "東家の手番です。牌をクリックして打牌してください。";
+        this.status = `${this.seatLabel(this.turnSeat)}の手番です。牌をクリックして打牌してください。`;
         UI.render(this);
     },
 
@@ -131,8 +145,7 @@ const Game = {
             const tile = Wall.draw();
 
             if (!tile) {
-                this.status = "流局：山がありません";
-                UI.render(this);
+                this.endDraw();
                 return;
             }
 
@@ -149,13 +162,23 @@ const Game = {
         }, 600);
     },
 
+    endDraw() {
+        this.status = "流局：山がありません";
+        UI.render(this);
+    },
+
     emptySeatLabel() {
+        return this.seatLabel(this.emptySeat);
+    },
+
+    seatLabel(seat) {
         const labels = {
+            east: "東家",
             south: "南家",
             west: "西家",
             north: "北家"
         };
 
-        return labels[this.emptySeat];
+        return labels[seat];
     }
 };

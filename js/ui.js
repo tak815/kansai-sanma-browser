@@ -28,7 +28,11 @@ const UI = {
 
     renderEmptySeat(seat) {
         document.getElementById(`${seat}-name`).textContent = "空席";
-        document.getElementById(`${seat}-hand-count`).textContent = "-";
+
+        const countElement = document.getElementById(`${seat}-hand-count`);
+        if (countElement) {
+            countElement.textContent = "-";
+        }
 
         const discardArea = document.getElementById(`${seat}-discard`);
         discardArea.innerHTML = "";
@@ -84,6 +88,9 @@ const UI = {
     },
 
     renderInfo(game) {
+        document.getElementById("rule-name").textContent = Rules.name;
+        document.getElementById("round-name").textContent = game.roundName;
+        document.getElementById("dealer-seat").textContent = game.seatLabel(game.dealerSeat);
         document.getElementById("empty-seat").textContent = game.emptySeatLabel();
         document.getElementById("turn-player").textContent = game.currentPlayer().seatWind + "家";
         document.getElementById("wall-count").textContent = Wall.count();
