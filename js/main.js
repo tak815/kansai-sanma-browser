@@ -1,14 +1,11 @@
 "use strict";
 
-/*
-    関西三麻ブラウザゲーム
-    Version 0.3
-*/
-
 window.onload = () => {
-
-    console.log("関西三麻ブラウザゲーム v0.3");
+    console.log("関西三麻ブラウザゲーム v0.4");
 
     Game.start();
 
+    document.getElementById("draw-button").addEventListener("click", () => {
+        Game.drawTile();
+    });
 };

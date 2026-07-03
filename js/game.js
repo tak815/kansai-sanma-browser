@@ -1,44 +1,45 @@
 "use strict";
 
-/*
-    game.js
-    ゲーム進行管理
-*/
-
 const Game = {
-
-    version: "0.3",
-
-    playerHand: [],
+    version: "0.4",
+    selfPlayer: null,
+    status: "準備中",
 
     start() {
         Wall.create();
 
-        this.playerHand = [];
+        this.selfPlayer = new Player("自家");
+        this.status = "配牌中";
 
         for (let i = 0; i < 13; i++) {
-            this.playerHand.push(Wall.draw());
+            this.selfPlayer.draw(Wall.draw());
         }
 
-        this.render();
+        this.status = "ツモ待ち";
+        UI.render(this);
     },
 
-    render() {
-        const hand = document.getElementById("hand");
-        const wallCount = document.getElementById("wall-count");
-        const gameStatus = document.getElementById("game-status");
+    drawTile() {
+        if (this.selfPlayer.hand.length >= 14) {
+            this.status = "先に1枚打牌してください";
+            UI.render(this);
+            return;
+        }
 
-        hand.innerHTML = "";
+        this.selfPlayer.draw(Wall.draw());
+        this.status = "打牌してください";
+        UI.render(this);
+    },
 
-        this.playerHand.forEach(tile => {
-            const div = document.createElement("div");
-            div.className = "tile";
-            div.textContent = tile.label;
-            hand.appendChild(div);
-        });
+    discard(index) {
+        if (this.selfPlayer.hand.length <= 13) {
+            this.status = "先にツモしてください";
+            UI.render(this);
+            return;
+        }
 
-        wallCount.textContent = Wall.count();
-        gameStatus.textContent = "配牌完了";
+        this.selfPlayer.discard(index);
+        this.status = "ツモ待ち";
+        UI.render(this);
     }
-
 };

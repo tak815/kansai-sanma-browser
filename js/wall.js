@@ -2,7 +2,7 @@
 
 /*
     wall.js
-    牌山管理
+    牌山
 */
 
 const Wall = {
@@ -13,47 +13,73 @@ const Wall = {
 
         this.tiles = [];
 
-        // 萬子 1～9（各4枚）
-        for (let n = 1; n <= 9; n++) {
-            for (let i = 0; i < 4; i++) {
-                this.tiles.push(Tile.create("m", n, `${n}m`));
-            }
-        }
+        this.createSuit("m");
+        this.createSuit("p");
+        this.createSuit("s");
 
-        // 筒子 1～9
-        for (let n = 1; n <= 9; n++) {
-            for (let i = 0; i < 4; i++) {
-                this.tiles.push(Tile.create("p", n, `${n}p`));
-            }
-        }
-
-        // 索子 1～9
-        for (let n = 1; n <= 9; n++) {
-            for (let i = 0; i < 4; i++) {
-                this.tiles.push(Tile.create("s", n, `${n}s`));
-            }
-        }
-
-        // 字牌
-        const honors = ["東", "南", "西", "北", "白", "發", "中"];
-
-        for (const h of honors) {
-            for (let i = 0; i < 4; i++) {
-                this.tiles.push(Tile.create("z", 0, h));
-            }
-        }
+        this.createHonor("東");
+        this.createHonor("南");
+        this.createHonor("西");
+        this.createHonor("北");
+        this.createHonor("白");
+        this.createHonor("發");
+        this.createHonor("中");
 
         this.shuffle();
+
+    },
+
+    createSuit(suit) {
+
+        for (let number = 1; number <= 9; number++) {
+
+            for (let i = 0; i < 4; i++) {
+
+                this.tiles.push(
+
+                    new Tile(
+                        suit,
+                        number,
+                        `${number}${suit}`
+                    )
+
+                );
+
+            }
+
+        }
+
+    },
+
+    createHonor(name) {
+
+        for (let i = 0; i < 4; i++) {
+
+            this.tiles.push(
+
+                new Tile(
+                    "z",
+                    0,
+                    name
+                )
+
+            );
+
+        }
+
     },
 
     shuffle() {
 
         for (let i = this.tiles.length - 1; i > 0; i--) {
 
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(
+                Math.random() * (i + 1)
+            );
 
             [this.tiles[i], this.tiles[j]] =
-                [this.tiles[j], this.tiles[i]];
+            [this.tiles[j], this.tiles[i]];
+
         }
 
     },
