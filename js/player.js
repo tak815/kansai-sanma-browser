@@ -1,8 +1,10 @@
 "use strict";
 
 class Player {
-    constructor(name) {
+    constructor(name, type, seatWind) {
         this.name = name;
+        this.type = type;
+        this.seatWind = seatWind;
         this.hand = [];
         this.discards = [];
     }
@@ -21,5 +23,10 @@ class Player {
         }
 
         return discarded;
+    }
+
+    randomDiscard() {
+        const index = Math.floor(Math.random() * this.hand.length);
+        return this.discard(index);
     }
 }

@@ -11,36 +11,46 @@
 <div id="game">
     <header id="header">
         <h1>関西三麻ブラウザゲーム</h1>
-        <div id="version">Version v0.4</div>
+        <div id="version">Version v0.6</div>
     </header>
 
     <main id="table">
-        <div id="top-player" class="player opponent">
-            <div class="player-name">北家</div>
-            <div id="top-discard" class="discard-area"></div>
+
+        <div id="west-player" class="player opponent">
+            <div class="player-name" id="west-name">西家</div>
+            <div class="hand-count">手牌：<span id="west-hand-count">0</span>枚</div>
+            <div id="west-discard" class="discard-area"></div>
         </div>
 
-        <div id="left-player" class="player opponent">
-            <div class="player-name">南家</div>
-            <div id="left-discard" class="discard-area"></div>
+        <div id="north-player" class="player opponent">
+            <div class="player-name" id="north-name">北家</div>
+            <div class="hand-count">手牌：<span id="north-hand-count">0</span>枚</div>
+            <div id="north-discard" class="discard-area"></div>
+        </div>
+
+        <div id="south-player" class="player opponent">
+            <div class="player-name" id="south-name">南家</div>
+            <div class="hand-count">手牌：<span id="south-hand-count">0</span>枚</div>
+            <div id="south-discard" class="discard-area"></div>
         </div>
 
         <div id="center">
             <div id="wall">山</div>
             <div id="info">
                 <div>局：東1局</div>
+                <div>空席：<span id="empty-seat">未定</span></div>
+                <div>手番：<span id="turn-player">東家</span></div>
                 <div>山残り：<span id="wall-count">0</span></div>
                 <div>状態：<span id="game-status">準備中</span></div>
             </div>
-
-            <button id="draw-button">ツモ</button>
         </div>
 
-        <div id="bottom-player" class="player self">
-            <div class="player-name">自家</div>
-            <div id="self-discard" class="discard-area"></div>
+        <div id="east-player" class="player self">
+            <div class="player-name" id="east-name">東家（自分）</div>
+            <div id="east-discard" class="discard-area"></div>
             <div id="hand"></div>
         </div>
+
     </main>
 </div>
 

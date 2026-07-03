@@ -39,31 +39,42 @@ body {
     background: rgba(0, 0, 0, 0.25);
     border-radius: 10px;
     padding: 10px;
-    min-width: 160px;
+    min-width: 180px;
 }
 
-#top-player {
+#west-player {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
 }
 
-#left-player {
+#north-player {
     left: 20px;
     top: 42%;
 }
 
-#bottom-player {
+#south-player {
+    right: 20px;
+    top: 42%;
+}
+
+#east-player {
     bottom: 15px;
     left: 50%;
     transform: translateX(-50%);
-    min-width: 760px;
+    min-width: 780px;
 }
 
 .player-name {
     text-align: center;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
+}
+
+.hand-count {
+    text-align: center;
+    font-size: 14px;
+    margin-bottom: 8px;
 }
 
 #center {
@@ -89,22 +100,6 @@ body {
 #info {
     margin-top: 15px;
     line-height: 1.8;
-}
-
-#draw-button {
-    margin-top: 12px;
-    padding: 10px 24px;
-    border: none;
-    border-radius: 8px;
-    background: #f2d16b;
-    color: #222;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-#draw-button:hover {
-    filter: brightness(1.1);
 }
 
 #hand {
@@ -134,8 +129,17 @@ body {
     transform: translateY(-10px);
 }
 
+.tile.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tile.disabled:hover {
+    transform: none;
+}
+
 .discard-area {
-    min-height: 48px;
+    min-height: 52px;
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
