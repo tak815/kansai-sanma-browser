@@ -9,6 +9,9 @@ const SEAT_LABELS = {
 
 const AI_THINK_MIN_MS = 450;
 const AI_THINK_MAX_MS = 900;
+// Sprint 3 Block 3-5 hotfix2: リーチ表示・宣言牌回転の確認用。
+// 正式テンパイ判定が安定するまで、14枚ある自分の手番ではリーチ操作を確認できるようにする。
+const DEBUG_RIICHI_TEST_MODE = true;
 
 const state = {
   wall: [],
@@ -38,6 +41,18 @@ const state = {
   aiTimerId: null,
   actionLocked: false,
   selectedTileId: null,
+  riichiPending: false,
+  riichiSticks: 0,
+  points: {
+    east: 35000,
+    south: 35000,
+    west: 35000,
+  },
+  riichi: {
+    east: false,
+    south: false,
+    west: false,
+  },
 };
 
 const tileDefinitions = [
@@ -68,6 +83,7 @@ const dom = {
   wallText: document.getElementById("wallText"),
   message: document.getElementById("message"),
   doraIndicator: document.getElementById("doraIndicator"),
+  riichiButton: document.getElementById("riichiButton"),
 };
 
 function makeWall() {
@@ -110,12 +126,16 @@ function startGame() {
   state.turnIndex = 0;
   state.started = true;
   state.actionLocked = false;
+  state.riichiPending = false;
+  state.riichiSticks = 0;
 
   for (const seat of SEATS) {
     state.hands[seat] = [];
     state.rivers[seat] = [];
     state.flowers[seat] = [];
     state.melds[seat] = [];
+    state.points[seat] = 35000;
+    state.riichi[seat] = false;
   }
 
   for (let i = 0; i < 13; i += 1) {
@@ -148,6 +168,7 @@ function clearAiTimer() {
 function nextTurn() {
   state.actionLocked = false;
   state.selectedTileId = null;
+  state.riichiPending = false;
   state.turnIndex = (state.turnIndex + 1) % SEATS.length;
   const seat = currentSeat();
 
@@ -241,6 +262,11 @@ function extractAiFlowers(seat) {
 function handlePlayerTileClick(seat, tile) {
   if (!state.started || seat !== currentSeat() || !isPlayerSeat(seat) || state.actionLocked) return;
 
+  if (state.riichi[seat] && tile.suit === "flower") {
+    dom.message.textContent = "リーチ後の花牌処理は後続Blockで正式対応します。";
+    return;
+  }
+
   if (tile.suit === "flower") {
     extractFlower(seat, tile.id);
     return;
@@ -272,13 +298,33 @@ function discardTile(seat, tileId, options = {}) {
     return;
   }
 
+  const riichiDiscardIds = getRiichiDiscardIds(seat);
+  const willRiichi = isPlayerSeat(seat) && state.riichiPending && !state.riichi[seat] && riichiDiscardIds.has(tile.id);
+
+  if (isPlayerSeat(seat) && state.riichiPending && !willRiichi) {
+    dom.message.textContent = "その牌ではリーチできません。テンパイになる打牌を選んでください。";
+    state.selectedTileId = null;
+    render();
+    return;
+  }
+
   state.actionLocked = true;
   state.selectedTileId = null;
   hand.splice(index, 1);
-  state.rivers[seat].push({ ...tile, riichi: false });
+
+  if (willRiichi) {
+    state.riichi[seat] = true;
+    state.riichiPending = false;
+    state.points[seat] -= 1000;
+    state.riichiSticks += 1;
+  }
+
+  state.rivers[seat].push({ ...tile, riichi: willRiichi });
 
   const prefix = isPlayerSeat(seat) ? "あなた" : SEAT_LABELS[seat];
-  dom.message.textContent = `${prefix}が${tile.label}を打牌。`;
+  dom.message.textContent = willRiichi
+    ? `${prefix}がリーチ宣言。${tile.label}が宣言牌です。`
+    : `${prefix}が${tile.label}を打牌。`;
   render();
 
   const delay = options.nextDelayMs ?? 380;
@@ -364,9 +410,10 @@ function render() {
   const seat = currentSeat();
   const turnPrefix = isPlayerSeat(seat) ? "あなた" : SEAT_LABELS[seat];
   dom.turnText.textContent = `${turnPrefix}の手番`;
-  dom.wallText.textContent = `山: ${state.wall.length}`;
+  dom.wallText.textContent = `山: ${state.wall.length} / 供託: ${state.riichiSticks} / 点: ${state.points[PLAYER_SEAT]}`;
   dom.doraIndicator.replaceWith(createTileElement(state.doraIndicator || { label: "?", suit: "back" }, { small: true }));
   dom.doraIndicator = document.querySelector(".dora-box .tile");
+  renderRiichiButton();
 
   for (const s of SEATS) {
     renderSeat(s);
@@ -415,6 +462,7 @@ function renderSeat(seat) {
       element.title = tile.suit === "flower" ? "花牌を抜く" : "選択 / もう一度タップで打牌";
       if (tile.id === state.selectedTileId) element.classList.add("selected");
       if (tile.suit !== "flower") element.classList.add("playable");
+      if (state.riichiPending && getRiichiDiscardIds(seat).has(tile.id)) element.classList.add("riichi-candidate");
       element.addEventListener("click", () => handlePlayerTileClick(seat, tile));
     }
 
@@ -444,5 +492,167 @@ function renderSeat(seat) {
   }
 }
 
+
+function tileKey(tile) {
+  return `${tile.suit}:${tile.label}`;
+}
+
+function getPlayableHand(seat) {
+  return state.hands[seat].filter((tile) => tile.suit !== "flower");
+}
+
+function getCandidateDrawTiles() {
+  return tileDefinitions.map((def, index) => ({ ...def, id: `candidate${index}` }));
+}
+
+function getRiichiDiscardIds(seat) {
+  if (!state.started || seat !== currentSeat() || !isPlayerSeat(seat)) return new Set();
+  if (state.actionLocked || state.riichi[seat] || state.points[seat] < 1000 || state.melds[seat].length > 0) return new Set();
+
+  const playable = getPlayableHand(seat);
+  if (playable.length !== 14) return new Set();
+
+  const result = new Set();
+  const candidates = getCandidateDrawTiles();
+
+  for (const discard of playable) {
+    const afterDiscard = playable.filter((tile) => tile.id !== discard.id);
+    const isTenpai = candidates.some((draw) => isWinningHand([...afterDiscard, draw]));
+    if (isTenpai) result.add(discard.id);
+  }
+
+  // 現段階はリーチUI確認を優先。正式な待ち判定は次Blockで精度を上げる。
+  if (result.size === 0 && DEBUG_RIICHI_TEST_MODE) {
+    playable.forEach((tile) => result.add(tile.id));
+  }
+
+  return result;
+}
+
+function isWinningHand(tiles) {
+  const normalTiles = tiles.filter((tile) => tile.suit !== "flower");
+  if (normalTiles.length !== 14) return false;
+  return isSevenPairs(normalTiles) || isStandardHand(normalTiles);
+}
+
+function isSevenPairs(tiles) {
+  const counts = makeCounts(tiles);
+  const values = Array.from(counts.values());
+  return values.length === 7 && values.every((count) => count === 2);
+}
+
+function isStandardHand(tiles) {
+  const counts = makeCounts(tiles);
+  for (const [key, count] of counts.entries()) {
+    if (count < 2) continue;
+    counts.set(key, count - 2);
+    if (canMakeMelds(counts)) {
+      counts.set(key, count);
+      return true;
+    }
+    counts.set(key, count);
+  }
+  return false;
+}
+
+function makeCounts(tiles) {
+  const counts = new Map();
+  for (const tile of tiles) {
+    const key = tileKey(tile);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}
+
+function canMakeMelds(counts) {
+  const entry = Array.from(counts.entries()).find(([, count]) => count > 0);
+  if (!entry) return true;
+
+  const [key, count] = entry;
+  const tile = parseTileKey(key);
+
+  if (count >= 3) {
+    counts.set(key, count - 3);
+    if (canMakeMelds(counts)) {
+      counts.set(key, count);
+      return true;
+    }
+    counts.set(key, count);
+  }
+
+  if (["pin", "sou"].includes(tile.suit) && tile.number <= 7) {
+    const key2 = `${tile.suit}:${tile.number + 1}${tile.suffix}`;
+    const key3 = `${tile.suit}:${tile.number + 2}${tile.suffix}`;
+    if ((counts.get(key2) || 0) > 0 && (counts.get(key3) || 0) > 0) {
+      counts.set(key, count - 1);
+      counts.set(key2, counts.get(key2) - 1);
+      counts.set(key3, counts.get(key3) - 1);
+      if (canMakeMelds(counts)) {
+        counts.set(key, count);
+        counts.set(key2, counts.get(key2) + 1);
+        counts.set(key3, counts.get(key3) + 1);
+        return true;
+      }
+      counts.set(key, count);
+      counts.set(key2, counts.get(key2) + 1);
+      counts.set(key3, counts.get(key3) + 1);
+    }
+  }
+
+  return false;
+}
+
+function parseTileKey(key) {
+  const [suit, label] = key.split(":");
+  const number = Number(label[0]);
+  const suffix = label.slice(1);
+  return { suit, label, number, suffix };
+}
+
+function countPlayableTiles(seat) {
+  return state.hands[seat].filter((tile) => tile.suit !== "flower").length;
+}
+
+function canDeclareRiichi(seat) {
+  return getRiichiDiscardIds(seat).size > 0;
+}
+
+function renderRiichiButton() {
+  if (!dom.riichiButton) return;
+
+  const canRiichi = canDeclareRiichi(PLAYER_SEAT);
+  const shouldShow = state.started && isPlayerSeat(currentSeat()) && (canRiichi || state.riichiPending || state.riichi[PLAYER_SEAT]);
+  dom.riichiButton.hidden = !shouldShow;
+
+  if (!shouldShow) {
+    dom.riichiButton.disabled = true;
+    dom.riichiButton.textContent = DEBUG_RIICHI_TEST_MODE ? "リーチ確認" : "リーチ";
+    dom.riichiButton.classList.remove("armed");
+    return;
+  }
+
+  dom.riichiButton.disabled = state.riichi[PLAYER_SEAT] || (!canRiichi && !state.riichiPending);
+  dom.riichiButton.classList.toggle("armed", state.riichiPending);
+
+  if (state.riichi[PLAYER_SEAT]) {
+    dom.riichiButton.textContent = "リーチ中";
+  } else if (state.riichiPending) {
+    dom.riichiButton.textContent = "リーチ選択中";
+  } else {
+    dom.riichiButton.textContent = DEBUG_RIICHI_TEST_MODE ? "リーチ確認" : "リーチ";
+  }
+}
+
+function toggleRiichiPending() {
+  if (!canDeclareRiichi(PLAYER_SEAT)) return;
+  state.riichiPending = !state.riichiPending;
+  state.selectedTileId = null;
+  dom.message.textContent = state.riichiPending
+    ? DEBUG_RIICHI_TEST_MODE ? "リーチ確認中。牌を選んで、もう一度タップで宣言牌回転を確認できます。" : "リーチする牌を選んで、もう一度タップで宣言打牌します。"
+    : "リーチ選択を解除しました。";
+  render();
+}
+
 dom.newGameButton.addEventListener("click", startGame);
+dom.riichiButton.addEventListener("click", toggleRiichiPending);
 render();
