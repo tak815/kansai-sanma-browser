@@ -1,166 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>関西三麻ブラウザゲーム</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>さんまっ！ Sprint 3 Block 1</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <main id="game" class="game">
+    <section class="top-bar">
+      <div class="brand">
+        <div class="title">さんまっ！</div>
+        <div class="subtitle">関西三麻を、もっと身近に。</div>
+      </div>
+      <div class="status-panel">
+        <div id="roundText">東一局</div>
+        <div id="turnText">東家の手番</div>
+        <div id="wallText">山: --</div>
+      </div>
+      <button id="newGameButton" class="primary-button">新規開始</button>
+    </section>
 
-<div id="game">
-
-    <header id="header">
-        <div id="title-area">
-            <h1>関西三麻ブラウザゲーム</h1>
-            <span id="version">v0.8a</span>
+    <section class="table">
+      <div class="center-board">
+        <div class="dora-box">
+          <span>ドラ表示</span>
+          <div id="doraIndicator" class="tile small back">?</div>
         </div>
-    </header>
+        <div class="message" id="message">新規開始を押してください</div>
+      </div>
 
-    <main id="table">
+      <div class="player-area player-east active" data-seat="east">
+        <div class="seat-label">東家</div>
+        <div class="flower-area" id="flowers-east"></div>
+        <div class="meld-area" id="melds-east"></div>
+        <div class="river river-east" id="river-east"></div>
+        <div class="hand" id="hand-east"></div>
+      </div>
 
-        <!-- 左上：局・本場・積み棒・ドラ -->
-        <section id="round-panel" class="info-panel">
-            <div class="round-title">
-                <span id="round-name">東1局</span>
-                <span id="honba-count">0本場</span>
-            </div>
+      <div class="player-area player-south" data-seat="south">
+        <div class="seat-label">南家</div>
+        <div class="flower-area" id="flowers-south"></div>
+        <div class="meld-area" id="melds-south"></div>
+        <div class="river river-south" id="river-south"></div>
+        <div class="hand vertical" id="hand-south"></div>
+      </div>
 
-            <div class="info-row">
-                <span>本場</span>
-                <span id="honba-stick">0</span>
-            </div>
+      <div class="player-area player-west" data-seat="west">
+        <div class="seat-label">西家</div>
+        <div class="flower-area" id="flowers-west"></div>
+        <div class="meld-area" id="melds-west"></div>
+        <div class="river river-west" id="river-west"></div>
+        <div class="hand vertical" id="hand-west"></div>
+      </div>
+    </section>
+  </main>
 
-            <div class="info-row">
-                <span>積み棒</span>
-                <span id="deposit-stick">0</span>
-            </div>
-
-            <div class="info-row">
-                <span>ドラ</span>
-                <div id="dora-area" class="small-tile-area"></div>
-            </div>
-        </section>
-
-        <!-- 左下：鳴き・理牌設定 -->
-        <section id="action-settings" class="info-panel">
-            <div class="settings-title">設定</div>
-
-            <button class="setting-button active">鳴きあり</button>
-            <button class="setting-button">鳴きなし</button>
-
-            <button class="setting-button active">自動理牌 ON</button>
-        </section>
-
-        <!-- 西家：上 -->
-        <section id="west-player" class="seat seat-west">
-            <div class="player-card">
-                <div id="west-name" class="player-name">西家</div>
-                <div class="player-score">35000</div>
-            </div>
-
-            <div id="west-hand-count" class="hand-count">手牌：0枚</div>
-            <div id="west-discard" class="discard-area discard-horizontal"></div>
-            <div id="west-flower" class="flower-area"></div>
-            <div id="west-meld" class="meld-area"></div>
-        </section>
-
-        <!-- 北家：左 -->
-        <section id="north-player" class="seat seat-north">
-            <div class="player-card">
-                <div id="north-name" class="player-name">北家</div>
-                <div class="player-score">35000</div>
-            </div>
-
-            <div id="north-hand-count" class="hand-count">手牌：0枚</div>
-            <div id="north-discard" class="discard-area discard-side discard-left"></div>
-            <div id="north-flower" class="flower-area"></div>
-            <div id="north-meld" class="meld-area"></div>
-        </section>
-
-        <!-- 南家：右 -->
-        <section id="south-player" class="seat seat-south">
-            <div class="player-card">
-                <div id="south-name" class="player-name">南家</div>
-                <div class="player-score">35000</div>
-            </div>
-
-            <div id="south-hand-count" class="hand-count">手牌：0枚</div>
-            <div id="south-discard" class="discard-area discard-side discard-right"></div>
-            <div id="south-flower" class="flower-area"></div>
-            <div id="south-meld" class="meld-area"></div>
-        </section>
-
-        <!-- 中央：山・局情報 -->
-        <section id="center-area">
-
-            <div id="wall-area">
-                <div class="wall-row wall-top"></div>
-                <div class="wall-row wall-bottom"></div>
-                <div class="wall-column wall-left"></div>
-                <div class="wall-column wall-right"></div>
-
-                <div id="center-board">
-                    <div id="center-round">東1局</div>
-                    <div id="center-honba">0本場</div>
-                    <div id="dealer-display">親：東家</div>
-                    <div id="turn-display">手番：東家</div>
-                    <div id="wall-count-display">
-                        残り牌数
-                        <strong id="wall-count">0</strong>
-                    </div>
-                </div>
-            </div>
-
-            <div id="status-message">
-                <span id="game-status">準備中</span>
-            </div>
-
-        </section>
-
-        <!-- 東家の河 -->
-        <section id="east-discard-zone">
-            <div class="discard-label">東家の河</div>
-            <div id="east-discard" class="discard-area discard-horizontal"></div>
-        </section>
-
-        <!-- 東家：自分 -->
-        <section id="east-player" class="seat seat-east">
-            <div class="player-card self-card">
-                <div id="east-name" class="player-name">東家（自分）</div>
-                <div class="player-score">35000</div>
-                <div class="dealer-mark">親</div>
-            </div>
-
-            <!-- 副露・花牌エリア：手牌の右側を空ける -->
-            <div id="self-open-area">
-                <div id="east-flower" class="flower-area self-flower"></div>
-                <div id="east-meld" class="meld-area self-meld"></div>
-            </div>
-
-            <div id="hand"></div>
-        </section>
-
-    </main>
-
-</div>
-
-<!-- Core -->
-<script src="js/core/Tile.js"></script>
-<script src="js/core/Wall.js"></script>
-<script src="js/core/Player.js"></script>
-<script src="js/core/Game.js"></script>
-
-<!-- Logic -->
-<script src="js/logic/Rules.js"></script>
-
-<!-- Utility -->
-<script src="js/util/TileImage.js"></script>
-
-<!-- UI -->
-<script src="js/ui/UI.js"></script>
-
-<!-- Entry Point -->
-<script src="js/main.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
