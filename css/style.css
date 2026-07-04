@@ -123,6 +123,19 @@ button {
   color: #fff5d0;
 }
 
+.action-button {
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 245, 208, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 245, 208, 0.12);
+  color: rgba(255, 245, 208, 0.88);
+  font-weight: 800;
+}
+
+.action-button:disabled {
+  opacity: 0.45;
+}
+
 .player-area {
   position: absolute;
   transition: filter 180ms ease, opacity 180ms ease;
@@ -280,6 +293,7 @@ button {
 }
 
 .tile {
+  position: relative;
   width: 52px;
   height: 76px;
   border-radius: 8px;
@@ -304,6 +318,26 @@ button {
   transform: translateY(-10px);
   box-shadow: 0 16px 18px rgba(0, 0, 0, 0.38);
   filter: brightness(1.07);
+}
+
+.tile.playable::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  border: 2px solid rgba(214, 166, 75, 0);
+  pointer-events: none;
+}
+
+.tile.selected {
+  transform: translateY(-14px);
+  box-shadow: 0 18px 22px rgba(0, 0, 0, 0.42), 0 0 0 3px rgba(255, 245, 208, 0.75);
+  filter: brightness(1.08);
+}
+
+.tile.input-locked {
+  pointer-events: none;
+  filter: saturate(0.78) brightness(0.9);
 }
 
 .tile.small {

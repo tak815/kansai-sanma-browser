@@ -37,6 +37,7 @@ const state = {
   started: false,
   aiTimerId: null,
   actionLocked: false,
+  selectedTileId: null,
 };
 
 const tileDefinitions = [
@@ -103,6 +104,7 @@ function sortHand(hand) {
 
 function startGame() {
   clearAiTimer();
+  state.selectedTileId = null;
   state.wall = makeWall();
   state.doraIndicator = state.wall.pop();
   state.turnIndex = 0;
@@ -145,6 +147,7 @@ function clearAiTimer() {
 
 function nextTurn() {
   state.actionLocked = false;
+  state.selectedTileId = null;
   state.turnIndex = (state.turnIndex + 1) % SEATS.length;
   const seat = currentSeat();
 
@@ -187,6 +190,9 @@ function extractFlower(seat, tileId, options = {}) {
   const index = hand.findIndex((tile) => tile.id === tileId && tile.suit === "flower");
   if (index === -1) return false;
 
+  state.actionLocked = true;
+  state.selectedTileId = null;
+
   const [tile] = hand.splice(index, 1);
   state.flowers[seat].push(tile);
 
@@ -197,22 +203,60 @@ function extractFlower(seat, tileId, options = {}) {
     : `${prefix}が花牌 ${tile.label} を抜きました。`;
 
   render();
+
+  window.setTimeout(() => {
+    state.actionLocked = false;
+    render();
+  }, options.lockMs ?? 220);
+
   return true;
 }
 
 function extractAiFlowers(seat) {
+  // CPUは現時点では花牌を見つけたら思考中にまとめて抜く。
+  // ユーザー操作用の入力ロックとは分離して、AI打牌が止まらないようにする。
   let extracted = false;
   let guard = 0;
 
   while (guard < 8) {
-    const flower = state.hands[seat].find((tile) => tile.suit === "flower");
-    if (!flower) break;
-    extractFlower(seat, flower.id, { ai: true });
+    const index = state.hands[seat].findIndex((tile) => tile.suit === "flower");
+    if (index === -1) break;
+
+    const [flower] = state.hands[seat].splice(index, 1);
+    state.flowers[seat].push(flower);
+    drawTile(seat, false);
+    sortHand(state.hands[seat]);
     extracted = true;
     guard += 1;
   }
 
+  if (extracted) {
+    dom.message.textContent = `${SEAT_LABELS[seat]}が花牌を抜きました。`;
+    render();
+  }
+
   return extracted;
+}
+
+function handlePlayerTileClick(seat, tile) {
+  if (!state.started || seat !== currentSeat() || !isPlayerSeat(seat) || state.actionLocked) return;
+
+  if (tile.suit === "flower") {
+    extractFlower(seat, tile.id);
+    return;
+  }
+
+  // Sprint 3 Block 3-4: スマホ横持ちを想定し、
+  // 1タップ目で選択、同じ牌をもう一度タップで打牌する。
+  // 連打やAIターン中の誤入力は actionLocked で止める。
+  if (state.selectedTileId !== tile.id) {
+    state.selectedTileId = tile.id;
+    dom.message.textContent = `${tile.label}を選択中。もう一度タップで打牌します。`;
+    render();
+    return;
+  }
+
+  discardTile(seat, tile.id);
 }
 
 function discardTile(seat, tileId, options = {}) {
@@ -229,6 +273,7 @@ function discardTile(seat, tileId, options = {}) {
   }
 
   state.actionLocked = true;
+  state.selectedTileId = null;
   hand.splice(index, 1);
   state.rivers[seat].push({ ...tile, riichi: false });
 
@@ -244,6 +289,7 @@ function discardTile(seat, tileId, options = {}) {
 
 function maybeRunAiTurn() {
   clearAiTimer();
+  state.selectedTileId = null;
   if (!state.started) return;
 
   const seat = currentSeat();
@@ -357,6 +403,7 @@ function renderSeat(seat) {
   meldElement.innerHTML = "";
 
   const canClick = seat === currentSeat() && state.started && isPlayerSeat(seat) && !state.actionLocked;
+  const isInputLocked = state.started && (state.actionLocked || !isPlayerSeat(currentSeat()));
 
   for (const tile of state.hands[seat]) {
     const element = createTileElement(tile, {
@@ -365,14 +412,14 @@ function renderSeat(seat) {
     });
 
     if (canClick) {
-      element.title = tile.suit === "flower" ? "花牌を抜く" : "打牌する";
-      element.addEventListener("click", () => {
-        if (tile.suit === "flower") {
-          extractFlower(seat, tile.id);
-        } else {
-          discardTile(seat, tile.id);
-        }
-      });
+      element.title = tile.suit === "flower" ? "花牌を抜く" : "選択 / もう一度タップで打牌";
+      if (tile.id === state.selectedTileId) element.classList.add("selected");
+      if (tile.suit !== "flower") element.classList.add("playable");
+      element.addEventListener("click", () => handlePlayerTileClick(seat, tile));
+    }
+
+    if (isInputLocked && isPlayerSeat(seat)) {
+      element.classList.add("input-locked");
     }
 
     handElement.appendChild(element);

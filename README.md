@@ -1,4 +1,4 @@
-# さんまっ！ Sprint 3 Block 3-3
+# さんまっ！ Sprint 3 Block 3-4
 
 関西三麻ブラウザゲーム Project KSB の開発版です。
 
