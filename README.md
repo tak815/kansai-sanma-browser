@@ -1,17 +1,48 @@
-# さんまっ！ Project KSB
+# Project KSB Sprint 3-7B-1 修正版
 
-Sprint 3 Block 3-5。
+目的: 花牌がドラ表示牌・裏ドラ表示牌になったときの判定バグ修正。
 
-## 今回の確認
-- リーチボタン
-- リーチ宣言牌90度回転
-- 河レイアウト維持
-- AI進行
+## 入っているもの
 
+- `src/domain/dora.ts`
+  - 共通ドラ判定モジュール
+- `src/domain/dora.test.ts`
+  - 確認用テスト
+- `docs/SYSTEM_SPEC_addendum.md`
+  - SYSTEM_SPEC.md へ追記する内容
+- `docs/CHANGELOG_addendum.md`
+  - CHANGELOG.md へ追記する内容
 
-## Sprint 3 Block 3-5 hotfix2
+## 反映方法
 
-- リーチボタンが河・中央表示に隠れないように中央ボードの重なり順を修正。
-- テンパイ判定が厳しく、確認できない問題を避けるため、Sprint 3中はリーチ確認モードを追加。
-- 自分の手番で14枚ある場合、リーチ確認ボタンから宣言牌90°回転を確認できます。
-- 正式なテンパイ判定・役判定は次ブロック以降で精度を上げます。
+1. ZIPを解凍する
+2. `src/domain/dora.ts` をプロジェクトの同じ場所へコピー
+   - `src/domain` がなければ作成
+3. 既存の点数計算・ドラ計算箇所で、次牌計算の代わりに以下を使う
+
+```ts
+import { countDoraInTiles } from './domain/dora';
+
+const visibleDoraCount = countDoraInTiles(scoringTiles, doraIndicators);
+const uraDoraCount = countDoraInTiles(scoringTiles, uraDoraIndicators);
+const totalDora = visibleDoraCount + uraDoraCount + akaDoraCount + flowerBonusCount;
+```
+
+パスは既存ファイル位置に合わせて調整してください。
+
+## 確認ケース
+
+- ドラ表示牌が `春` のとき、春・夏・秋・冬すべてがドラになる
+- 裏ドラ表示牌が `夏` のとき、春・夏・秋・冬すべてが裏ドラになる
+- ドラ表示牌 `春`、裏ドラ表示牌 `夏` のとき、花牌1枚が2ドラになる
+- 通常表示牌 `2p` のとき、`3p` がドラになる
+- 裏ドラ表示牌 `2p` のとき、`3p` が裏ドラになる
+
+## Git保存
+
+```bash
+git status
+git add .
+git commit -m "fix: handle flower dora indicators"
+git push
+```
