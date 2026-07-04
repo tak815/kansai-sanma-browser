@@ -29,13 +29,11 @@ const UI = {
     renderEmptySeat(seat) {
         document.getElementById(`${seat}-name`).textContent = "空席";
 
-        const countElement = document.getElementById(`${seat}-hand-count`);
-        if (countElement) {
-            countElement.textContent = "-";
-        }
+        const count = document.getElementById(`${seat}-hand-count`);
+        if (count) count.textContent = "手牌：-枚";
 
-        const discardArea = document.getElementById(`${seat}-discard`);
-        discardArea.innerHTML = "";
+        const discard = document.getElementById(`${seat}-discard`);
+        if (discard) discard.innerHTML = "";
     },
 
     renderSeatName(seat, player) {
@@ -48,10 +46,9 @@ const UI = {
 
     renderHandCount(seat, player) {
         const element = document.getElementById(`${seat}-hand-count`);
+        if (!element) return;
 
-        if (element) {
-            element.textContent = player.hand.length;
-        }
+        element.textContent = `手牌：${player.hand.length}枚`;
     },
 
     renderSelfHand(game, player) {
@@ -63,7 +60,7 @@ const UI = {
         player.hand.forEach((tile, index) => {
             const div = document.createElement("div");
             div.className = canDiscard ? "tile" : "tile disabled";
-            div.textContent = tile.label;
+            div.innerHTML = TileImage.getTileHtml(tile);
 
             if (canDiscard) {
                 div.addEventListener("click", () => {
@@ -77,22 +74,28 @@ const UI = {
 
     renderDiscards(player, elementId) {
         const area = document.getElementById(elementId);
+        if (!area) return;
+
         area.innerHTML = "";
 
         player.discards.forEach(tile => {
             const div = document.createElement("div");
             div.className = "discard-tile";
-            div.textContent = tile.label;
+            div.innerHTML = TileImage.getTileHtml(tile);
             area.appendChild(div);
         });
     },
 
     renderInfo(game) {
-        document.getElementById("rule-name").textContent = Rules.name;
         document.getElementById("round-name").textContent = game.roundName;
-        document.getElementById("dealer-seat").textContent = game.seatLabel(game.dealerSeat);
-        document.getElementById("empty-seat").textContent = game.emptySeatLabel();
-        document.getElementById("turn-player").textContent = game.currentPlayer().seatWind + "家";
+        document.getElementById("center-round").textContent = game.roundName;
+
+        document.getElementById("dealer-display").textContent =
+            `親：${game.seatLabel(game.dealerSeat)}`;
+
+        document.getElementById("turn-display").textContent =
+            `手番：${game.currentPlayer().seatWind}家`;
+
         document.getElementById("wall-count").textContent = Wall.count();
         document.getElementById("game-status").textContent = game.status;
     }

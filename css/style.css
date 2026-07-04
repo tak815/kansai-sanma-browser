@@ -5,155 +5,520 @@
 }
 
 body {
-    background: #0f4d1d;
-    color: white;
-    font-family: "Yu Gothic", sans-serif;
+    background: #071812;
+    color: #fff;
+    font-family: "Yu Gothic", "Meiryo", sans-serif;
     overflow: hidden;
 }
 
 #game {
     width: 100vw;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background:
+        radial-gradient(circle at center, #0f5135 0%, #08351f 55%, #04130d 100%);
 }
 
 #header {
-    height: 70px;
-    background: #222;
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    z-index: 20;
+}
+
+#title-area {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    border-bottom: 3px solid #111;
+    gap: 16px;
+}
+
+#title-area h1 {
+    font-size: 24px;
+    letter-spacing: 1px;
+}
+
+#version {
+    padding: 8px 14px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    font-size: 18px;
 }
 
 #table {
-    flex: 1;
     position: relative;
-    background: #146b2c;
+    width: 100vw;
+    height: 100vh;
 }
 
-.player {
+/* 共通パネル */
+
+.info-panel {
     position: absolute;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255,255,255,0.25);
     border-radius: 10px;
+    padding: 12px;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+}
+
+#round-panel {
+    top: 72px;
+    left: 16px;
+    width: 210px;
+}
+
+.round-title {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    font-weight: bold;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.25);
+    margin-bottom: 10px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 36px;
+    font-size: 17px;
+}
+
+.small-tile-area {
+    width: 42px;
+    height: 56px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 5px;
+}
+
+/* 左下設定 */
+
+#action-settings {
+    left: 16px;
+    bottom: 135px;
+    width: 180px;
+}
+
+.settings-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.setting-button {
+    width: 100%;
     padding: 10px;
-    min-width: 180px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
-#west-player {
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+.setting-button.active {
+    background: #0a8f58;
 }
 
-#north-player {
-    left: 20px;
-    top: 42%;
+/* プレイヤー */
+
+.seat {
+    position: absolute;
+    z-index: 5;
 }
 
-#south-player {
-    right: 20px;
-    top: 42%;
-}
-
-#east-player {
-    bottom: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    min-width: 780px;
+.player-card {
+    background: rgba(0,0,0,0.62);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 10px;
+    padding: 10px 18px;
+    text-align: center;
+    min-width: 150px;
 }
 
 .player-name {
-    text-align: center;
+    font-size: 20px;
     font-weight: bold;
-    margin-bottom: 6px;
+}
+
+.player-score {
+    margin-top: 4px;
+    font-size: 20px;
 }
 
 .hand-count {
     text-align: center;
+    margin-top: 6px;
     font-size: 14px;
-    margin-bottom: 8px;
+    opacity: 0.9;
 }
 
-#center {
+.seat-west {
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.seat-north {
+    left: 32px;
+    top: 40%;
+}
+
+.seat-south {
+    right: 32px;
+    top: 40%;
+}
+
+.seat-east {
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    width: 980px;
+}
+
+.self-card {
+    position: absolute;
+    left: -190px;
+    bottom: 4px;
+}
+
+.dealer-mark {
+    position: absolute;
+    right: -18px;
+    bottom: -12px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #d28b18;
+    border: 3px solid #f5cc68;
+    color: #102018;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 中央 */
+
+#center-area {
     position: absolute;
     left: 50%;
-    top: 48%;
+    top: 47%;
     transform: translate(-50%, -50%);
+    width: 520px;
+    height: 420px;
+}
+
+#wall-area {
+    position: relative;
+    width: 520px;
+    height: 330px;
+}
+
+#center-board {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 210px;
+    height: 190px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(#252525, #111);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 16px;
     text-align: center;
+    padding: 18px 10px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45);
 }
 
-#wall {
-    width: 120px;
-    height: 120px;
-    background: #2f2f2f;
-    border-radius: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 28px;
-    margin: auto;
-}
-
-#info {
-    margin-top: 15px;
-    line-height: 1.8;
-}
-
-#hand {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-    margin-top: 12px;
-}
-
-.tile {
-    width: 45px;
-    height: 65px;
-    background: white;
-    border-radius: 5px;
-    color: black;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 22px;
+#center-round {
+    font-size: 26px;
     font-weight: bold;
-    cursor: pointer;
-    transition: 0.15s;
-    user-select: none;
 }
 
-.tile:hover {
-    transform: translateY(-10px);
+#center-honba,
+#dealer-display,
+#turn-display {
+    margin-top: 8px;
+    font-size: 15px;
 }
 
-.tile.disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.tile.disabled:hover {
-    transform: none;
-}
-
-.discard-area {
-    min-height: 52px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    justify-content: center;
-}
-
-.discard-tile {
-    width: 32px;
-    height: 44px;
-    background: #f7f7f7;
-    color: black;
-    border-radius: 4px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+#wall-count-display {
+    margin-top: 12px;
     font-size: 14px;
+}
+
+#wall-count {
+    display: block;
+    font-size: 44px;
+    color: #23c8ff;
+    line-height: 1.1;
+}
+
+/* --------------------------
+   牌山
+--------------------------- */
+
+.wall-row {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 330px;
+    height: 24px;
+    background: linear-gradient(#3b8cff,#2f6fd8);
+    border-radius: 4px;
+}
+
+.wall-top{
+    top:0;
+}
+
+.wall-bottom{
+    bottom:0;
+}
+
+.wall-column{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    width:24px;
+    height:220px;
+    background:linear-gradient(#3b8cff,#2f6fd8);
+    border-radius:4px;
+}
+
+.wall-left{
+    left:0;
+}
+
+.wall-right{
+    right:0;
+}
+
+/* --------------------------
+   河
+--------------------------- */
+
+.discard-area{
+
+    display:grid;
+
+    gap:4px;
+
+    justify-content:center;
+
+    align-content:start;
+
+}
+
+.discard-horizontal{
+
+    grid-template-columns:repeat(7,48px);
+
+    grid-template-rows:repeat(3,64px);
+
+    width:350px;
+
+    min-height:200px;
+
+}
+
+.discard-side{
+
+    grid-template-columns:repeat(3,42px);
+
+    grid-template-rows:repeat(7,54px);
+
+    width:150px;
+
+    min-height:390px;
+
+}
+
+.discard-left{
+
+    transform:rotate(90deg);
+
+}
+
+.discard-right{
+
+    transform:rotate(-90deg);
+
+}
+
+.discard-label{
+
+    text-align:center;
+
+    margin-bottom:10px;
+
+    color:#ddd;
+
+}
+
+/* --------------------------
+   手牌
+--------------------------- */
+
+#hand{
+
+    display:flex;
+
+    align-items:flex-end;
+
+    gap:3px;
+
+    margin-top:18px;
+
+}
+
+.tile{
+
+    width:54px;
+
+    height:78px;
+
+    background:white;
+
+    border-radius:6px;
+
+    color:black;
+
+    font-size:28px;
+
+    font-weight:bold;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    cursor:pointer;
+
+    transition:.15s;
+
+    box-shadow:0 4px 8px rgba(0,0,0,.35);
+
+}
+
+.tile:hover{
+
+    transform:translateY(-10px);
+
+}
+
+.tile.disabled{
+
+    opacity:.75;
+
+}
+
+/* --------------------------
+   副露
+--------------------------- */
+
+#self-open-area{
+
+    position:absolute;
+
+    right:0;
+
+    bottom:92px;
+
+    width:300px;
+
+    height:130px;
+
+}
+
+.self-meld{
+
+    position:absolute;
+
+    bottom:0;
+
+    right:0;
+
+    display:flex;
+
+    flex-direction:row-reverse;
+
+    gap:10px;
+
+    align-items:flex-end;
+
+}
+
+.meld-set{
+
+    display:flex;
+
+    gap:2px;
+
+}
+
+/* --------------------------
+   花牌
+--------------------------- */
+
+.self-flower{
+
+    position:absolute;
+
+    top:0;
+
+    right:0;
+
+    display:flex;
+
+    flex-direction:row-reverse;
+
+    gap:8px;
+
+}
+
+.flower-area{
+
+    min-height:34px;
+
+}
+
+/* --------------------------
+   状態表示
+--------------------------- */
+
+#status-message{
+
+    margin-top:16px;
+
+    text-align:center;
+
+    font-size:18px;
+
+    color:#f5f5f5;
+
+}
+
+/* --------------------------
+   レスポンシブ
+--------------------------- */
+
+@media(max-width:1600px){
+
+    #center-area{
+
+        transform:translate(-50%,-50%) scale(.9);
+
+    }
+
+    .seat-east{
+
+        transform:translateX(-50%) scale(.9);
+
+    }
+
 }
