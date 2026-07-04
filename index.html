@@ -1,62 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>さんまっ！ Sprint 3 Block 3-5</title>
-  <link rel="stylesheet" href="css/style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>関西三麻 試作 v0.3.6A</title>
+<style>
+:root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--table);color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;min-width:960px}
+header{height:56px;background:#111;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:2px solid rgba(255,255,255,.16)}
+header h1{font-size:22px;margin:0}.version{font-size:14px;color:#ddd}
+main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start;margin-bottom:14px}.panel{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px}.info{font-size:16px;line-height:1.8;text-align:left;min-width:300px}.info b{color:var(--gold)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}.btn{padding:10px 18px;border:0;border-radius:10px;background:#e9e9e9;color:#111;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.35)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn-primary{background:#f2ca64}.btn-danger{background:#e0776e}.btn-debug{background:#96d6ff}.btn-kan{background:#ffde72;color:#111;display:none;animation:pulse 1.2s infinite}.btn-kan.show{display:inline-block}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.area-title{font-size:18px;margin:12px 0 8px;color:#fff}.hand,.river,.melds,.rinshan{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:8px}.tile{width:var(--tile-w);height:var(--tile-h);border:1px solid #333;background:#fff;color:#111;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 3px 0 rgba(0,0,0,.3);position:relative;overflow:hidden}.tile:hover{transform:translateY(-2px)}.tile img{width:100%;height:100%;object-fit:contain}.tile.small{width:38px;height:52px;font-size:13px}.tile.locked{cursor:default}.tile.selected{outline:4px solid #ffea7a}.tile.back{background:#1d3d8f;color:#fff;border-color:#bcd;cursor:default}.tile.back::before{content:"";width:22px;height:32px;border:2px solid rgba(255,255,255,.65);border-radius:3px}.tile.flower::after{content:"花";position:absolute;right:2px;bottom:2px;background:#cc3;color:#111;border-radius:3px;font-size:10px;padding:1px 3px}.meld{display:flex;gap:3px;padding:6px 8px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(0,0,0,.22);align-items:center}.meld-label{font-size:12px;color:#ffd86a;margin-right:4px}.river{max-width:520px;margin-left:auto;margin-right:auto}.log{height:130px;overflow:auto;text-align:left;font-size:13px;background:rgba(0,0,0,.32);border-radius:10px;padding:10px}.log div{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06)}.note{font-size:13px;color:#ddd}.warning{color:#ffd86a}.layout{display:grid;grid-template-columns:1fr;gap:14px}.debug-line{font-size:13px;color:#cce;margin-top:6px}
+@media (max-width: 980px){body{min-width:0}.status{grid-template-columns:1fr}.tile{width:42px;height:56px}.controls{gap:8px}.btn{font-size:14px;padding:9px 12px}}
+</style>
 </head>
 <body>
-  <main id="game" class="game">
-    <section class="top-bar">
-      <div class="brand">
-        <div class="title">さんまっ！</div>
-        <div class="subtitle">関西三麻を、もっと身近に。</div>
-      </div>
-      <div class="status-panel">
-        <div id="roundText">東一局</div>
-        <div id="turnText">東家の手番</div>
-        <div id="wallText">山: --</div>
-      </div>
-      <button id="newGameButton" class="primary-button">新規開始</button>
-    </section>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.6A-2 / HTML + CSS + JavaScript</div></header>
+<main>
+  <section class="status">
+    <div class="panel info">
+      <div>局：<b>東1局</b></div>
+      <div>手番：<b id="turnLabel">自家</b></div>
+      <div>山残り：<b id="remain"></b></div>
+      <div>嶺上牌：<b id="rinshanRemain"></b></div>
+      <div>ドラ表示：<b id="doraCount"></b></div>
+      <div>状態：<b id="stateText">開始</b></div>
+    </div>
+    <div class="panel controls">
+      <button class="btn btn-primary" onclick="drawTile()">ツモ</button>
+      <button id="kanButton" class="btn btn-kan" onclick="openKanChoices()">カン</button>
+      <button class="btn btn-debug" onclick="setDebugAnkan()">デバッグ暗槓</button>
+      <button class="btn btn-debug" onclick="setDebugKakan()">デバッグ加槓</button>
+      <button class="btn" onclick="newGame()">新しい対局</button>
+      <div class="debug-line">確認用：嶺上8枚（4トン）・カンドラ不可時カン禁止</div>
+    </div>
+    <div class="panel log" id="log"></div>
+  </section>
 
-    <section class="table">
-      <div class="center-board">
-        <div class="dora-box">
-          <span>ドラ表示</span>
-          <div id="doraIndicator" class="tile small back">?</div>
-        </div>
-        <div class="message" id="message">新規開始を押してください</div>
-        <button id="riichiButton" class="action-button" disabled>リーチ</button>
-      </div>
-
-      <div class="player-area player-east active" data-seat="east">
-        <div class="seat-label">東家</div>
-        <div class="flower-area" id="flowers-east"></div>
-        <div class="meld-area" id="melds-east"></div>
-        <div class="river river-east" id="river-east"></div>
-        <div class="hand" id="hand-east"></div>
-      </div>
-
-      <div class="player-area player-south" data-seat="south">
-        <div class="seat-label">南家</div>
-        <div class="flower-area" id="flowers-south"></div>
-        <div class="meld-area" id="melds-south"></div>
-        <div class="river river-south" id="river-south"></div>
-        <div class="hand vertical" id="hand-south"></div>
-      </div>
-
-      <div class="player-area player-west" data-seat="west">
-        <div class="seat-label">西家</div>
-        <div class="flower-area" id="flowers-west"></div>
-        <div class="meld-area" id="melds-west"></div>
-        <div class="river river-west" id="river-west"></div>
-        <div class="hand vertical" id="hand-west"></div>
-      </div>
-    </section>
-  </main>
-
-  <script src="js/main.js"></script>
+  <section class="layout">
+    <div class="panel">
+      <div class="area-title">嶺上牌（4トン / 合計8枚）</div>
+      <div id="rinshan" class="rinshan"></div>
+      <div class="note">花牌補充・カン補充はここから取得。ユーザー表示の山残りには含めません。</div>
+      <div class="area-title">副露 / カン表示</div>
+      <div id="melds" class="melds"></div>
+      <div class="note">花牌は副露の真上に置く仕様へ後続で接続。今回はカン成立と表示の土台です。</div>
+    </div>
+    <div class="panel">
+      <div class="area-title">あなたの手牌</div>
+      <div id="hand" class="hand"></div>
+      <div class="note warning" id="kanHint"></div>
+    </div>
+    <div class="panel">
+      <div class="area-title">あなたの河</div>
+      <div id="river" class="river"></div>
+    </div>
+  </section>
+</main>
+<script>
+const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
+for(let i=1;i<=9;i++){imageMap[i+"p"]=i+"p.png";imageMap[i+"s"]=i+"s.png";}
+const FLOWERS=new Set(["春","夏","秋","冬"]);
+const order={};let orderNo=1;["1m","9m"].forEach(t=>order[t]=orderNo++);for(let i=1;i<=9;i++)order[i+"p"]=orderNo++;for(let i=1;i<=9;i++)order[i+"s"]=orderNo++;["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>order[t]=orderNo++);
+let wall=[],rinshanPile=[],doraIndicators=[],hand=[],river=[],melds=[],lastDraw=null,canDiscard=false;
+const MAX_DORA_INDICATORS=5;
+function log(msg){const el=document.getElementById("log");const row=document.createElement("div");row.textContent=msg;el.prepend(row);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function createWall(){wall=[];rinshanPile=[];doraIndicators=[];["1m","9m"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});for(let n=1;n<=9;n++){for(let i=0;i<4;i++){wall.push(n+"p");wall.push(n+"s");}}["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});shuffle(wall);rinshanPile=wall.splice(0,8);doraIndicators=[wall.pop()];}
+function sortHand(){hand.sort((a,b)=>(order[a]||999)-(order[b]||999));}
+function tileNode(t,cls="tile",onClick=null){const d=document.createElement("div");d.className=cls+(FLOWERS.has(t)?" flower":"");if(onClick)d.onclick=onClick;else d.classList.add("locked");if(t==="back"){d.classList.add("back");return d;}const img=document.createElement("img");img.src="images/"+(imageMap[t]||"");img.alt=t;img.onerror=()=>{d.textContent=t;};d.appendChild(img);return d;}
+function deal(){hand=[];river=[];melds=[];for(let i=0;i<13;i++)hand.push(wall.pop());sortHand();canDiscard=false;lastDraw=null;log("新しい対局を開始しました");render();}
+function newGame(){createWall();deal();}
+function render(){document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";document.getElementById("turnLabel").textContent="自家";document.getElementById("stateText").textContent=canDiscard?"打牌してください":"ツモしてください";const h=document.getElementById("hand");h.innerHTML="";hand.forEach((t,i)=>h.appendChild(tileNode(t,"tile",()=>discard(i))));const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(tileNode(t,"tile small")));const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"","tile small"));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0);document.getElementById("kanHint").textContent=choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれないためカン不可":"");}
+function drawTile(){if(canDiscard){alert("先に捨ててください");return;}if(wall.length===0){alert("山がありません");return;}const t=wall.pop();hand.push(t);lastDraw=t;sortHand();canDiscard=true;log("ツモ："+t);render();}
+function discard(i){if(!canDiscard){alert("先にツモしてください");return;}const t=hand[i];river.push(t);hand.splice(i,1);lastDraw=null;canDiscard=false;log("打牌："+t);render();}
+function counts(){return hand.reduce((acc,t)=>{acc[t]=(acc[t]||0)+1;return acc;},{});}
+function canRevealKanDora(){return doraIndicators.length<MAX_DORA_INDICATORS && wall.length>=2 && rinshanPile.length>0;}
+function getKanChoices(){const c=counts();const choices=[];if(!canRevealKanDora())return choices;Object.keys(c).forEach(t=>{if(c[t]>=4)choices.push({kind:"暗槓",tile:t});});melds.forEach((m,idx)=>{if(m.type==="ポン"&&c[m.tile]>=1)choices.push({kind:"加槓",tile:m.tile,meldIndex:idx});});return choices;}
+function openKanChoices(){const choices=getKanChoices();if(!choices.length){alert("カンできる牌がありません");return;}if(choices.length===1){executeKan(choices[0]);return;}const text=choices.map((c,i)=>`${i+1}: ${c.kind} ${c.tile}`).join("\n");const n=Number(prompt("どのカンをしますか？\n"+text));if(n>=1&&n<=choices.length)executeKan(choices[n-1]);}
+function executeKan(choice){if(!canRevealKanDora()){alert("カンドラを新たにめくれないためカンできません");return;}revealKanDora();if(choice.kind==="暗槓"){let removed=0;hand=hand.filter(t=>{if(t===choice.tile&&removed<4){removed++;return false;}return true;});melds.push({type:"暗槓",tile:choice.tile,tiles:[choice.tile,choice.tile,choice.tile,choice.tile]});log("暗槓："+choice.tile);}else if(choice.kind==="加槓"){const idx=hand.indexOf(choice.tile);if(idx>=0)hand.splice(idx,1);const meld=melds[choice.meldIndex];meld.type="加槓";meld.tiles=[choice.tile,choice.tile,choice.tile,choice.tile];log("加槓："+choice.tile);}rinshanDraw();sortHand();canDiscard=true;render();}
+function revealKanDora(){const dora=wall.pop();const boundary=wall.pop();if(dora)doraIndicators.push(dora);log("カンドラ表示牌を追加：山残り-2");}
+function rinshanDraw(){const t=rinshanPile.pop();if(!t){log("嶺上牌なし");return;}hand.push(t);lastDraw=t;log("嶺上ツモ："+t+"（嶺上牌から補充）");}
+function setDebugAnkan(){createWall();hand=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中"];river=[];melds=[];canDiscard=false;lastDraw=null;sortHand();log("デバッグ暗槓：5p×4を配牌しました");render();}
+function setDebugKakan(){createWall();hand=["5p","1p","2p","3p","4s","6s","7s","東","南","白","中","9p","9s"];river=[];melds=[{type:"ポン",tile:"5p",tiles:["5p","5p","5p"]}];canDiscard=false;lastDraw=null;sortHand();log("デバッグ加槓：5pポン済み＋手牌5pを作成しました");render();}
+newGame();
+</script>
 </body>
 </html>
