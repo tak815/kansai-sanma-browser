@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.6C</title>
+<title>関西三麻 試作 v0.3.7A</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -17,7 +17,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.6C / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.7A / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -26,6 +26,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div>山残り：<b id="remain"></b></div>
       <div>嶺上牌：<b id="rinshanRemain"></b></div>
       <div>ドラ表示：<b id="doraCount"></b></div>
+      <div>手牌ドラ：<b id="handDoraTotal"></b></div>
       <div>状態：<b id="stateText">開始</b></div>
     </div>
     <div class="panel controls">
@@ -33,6 +34,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button id="kanButton" class="btn btn-kan" onclick="openKanChoices()">カン</button>
       <button class="btn btn-debug" onclick="setDebugAnkan()">デバッグ暗槓</button>
       <button class="btn btn-debug" onclick="setDebugKakan()">デバッグ加槓</button>
+      <button class="btn btn-debug" onclick="setDebugFlowerDora()">花ドラ確認</button>
       <button class="btn" onclick="newGame()">新しい対局</button>
       <div class="debug-line">確認用：嶺上8枚（4トン）・カンドラ不可時カン禁止</div>
     </div>
@@ -55,6 +57,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div class="area-title">あなたの手牌</div>
       <div id="hand" class="hand"></div>
       <div class="note warning" id="kanHint"></div>
+      <div class="debug-line" id="doraBreakdown"></div>
     </div>
     <div class="panel">
       <div class="area-title">あなたの河</div>
@@ -69,6 +72,35 @@ const FLOWERS=new Set(["春","夏","秋","冬"]);
 const order={};let orderNo=1;["1m","9m"].forEach(t=>order[t]=orderNo++);for(let i=1;i<=9;i++)order[i+"p"]=orderNo++;for(let i=1;i<=9;i++)order[i+"s"]=orderNo++;["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>order[t]=orderNo++);
 let wall=[],rinshanPile=[],doraIndicators=[],uraIndicators=[],hand=[],river=[],melds=[],lastDraw=null,canDiscard=false;
 const MAX_DORA_INDICATORS=5;
+const DORA_NEXT={"1m":"9m","9m":"1m","1p":"2p","2p":"3p","3p":"4p","4p":"5p","5p":"6p","6p":"7p","7p":"8p","8p":"9p","9p":"1p","1s":"2s","2s":"3s","3s":"4s","4s":"5s","5s":"6s","6s":"7s","7s":"8s","8s":"9s","9s":"1s","東":"南","南":"西","西":"北","北":"東","白":"發","發":"中","中":"白"};
+function getDoraTargets(indicators){
+  const targets=[];
+  indicators.forEach(indicator=>{
+    if(FLOWERS.has(indicator)){
+      // Project KSB: ドラ表示牌が花牌なら、春夏秋冬の種類に関係なく全花牌が対象。
+      FLOWERS.forEach(f=>targets.push(f));
+    }else if(DORA_NEXT[indicator]){
+      targets.push(DORA_NEXT[indicator]);
+    }
+  });
+  return targets;
+}
+function countDoraForTile(tile, indicators=doraIndicators, includeBaseFlower=true){
+  let total=0;
+  if(includeBaseFlower && FLOWERS.has(tile)) total+=1; // 花牌自体のドラ1。
+  getDoraTargets(indicators).forEach(target=>{if(target===tile)total+=1;});
+  return total;
+}
+function getHandDoraInfo(){
+  const rows=[];
+  let total=0;
+  hand.forEach(tile=>{
+    const dora=countDoraForTile(tile);
+    if(dora>0){rows.push(`${tile}:ドラ${dora}`);total+=dora;}
+  });
+  return {total,rows};
+}
+
 function log(msg){const el=document.getElementById("log");const row=document.createElement("div");row.textContent=msg;el.prepend(row);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function createWall(){wall=[];rinshanPile=[];doraIndicators=[];uraIndicators=[];["1m","9m"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});for(let n=1;n<=9;n++){for(let i=0;i<4;i++){wall.push(n+"p");wall.push(n+"s");}}["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});shuffle(wall);rinshanPile=wall.splice(0,8);
@@ -81,7 +113,7 @@ function sortHand(){hand.sort((a,b)=>(order[a]||999)-(order[b]||999));}
 function tileNode(t,cls="tile",onClick=null){const d=document.createElement("div");d.className=cls+(FLOWERS.has(t)?" flower":"");if(onClick)d.onclick=onClick;else d.classList.add("locked");if(t==="empty"){d.classList.add("empty");d.title="使用済みの嶺上牌枠";return d;}if(t==="back"){d.classList.add("back");return d;}const img=document.createElement("img");img.src="images/"+(imageMap[t]||"");img.alt=t;img.onerror=()=>{d.textContent=t;};d.appendChild(img);return d;}
 function deal(){hand=[];river=[];melds=[];for(let i=0;i<13;i++)hand.push(wall.pop());sortHand();canDiscard=false;lastDraw=null;log("新しい対局を開始しました");render();}
 function newGame(){createWall();deal();}
-function render(){document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";document.getElementById("turnLabel").textContent="自家";document.getElementById("stateText").textContent=canDiscard?"打牌してください":"ツモしてください";const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
+function render(){document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("handDoraTotal").textContent=doraInfo.total+"";document.getElementById("doraBreakdown").textContent=doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし";document.getElementById("turnLabel").textContent="自家";document.getElementById("stateText").textContent=canDiscard?"打牌してください":"ツモしてください";const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
   const h=document.getElementById("hand");h.innerHTML="";hand.forEach((t,i)=>h.appendChild(tileNode(t,"tile",()=>discard(i))));const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(tileNode(t,"tile small")));const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0);document.getElementById("kanHint").textContent=choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれないためカン不可":"");}
 function drawTile(){if(canDiscard){alert("先に捨ててください");return;}if(wall.length===0){alert("山がありません");return;}const t=wall.pop();hand.push(t);lastDraw=t;sortHand();canDiscard=true;log("ツモ："+t);render();}
 function discard(i){if(!canDiscard){alert("先にツモしてください");return;}const t=hand[i];river.push(t);hand.splice(i,1);lastDraw=null;canDiscard=false;log("打牌："+t);render();}
@@ -102,6 +134,7 @@ function revealKanDora(){
 function rinshanDraw(){const t=rinshanPile.pop();if(!t){log("嶺上牌なし");return;}hand.push(t);lastDraw=t;log("嶺上ツモ："+t+"（嶺上牌から補充）");}
 function setDebugAnkan(){createWall();hand=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中"];river=[];melds=[];canDiscard=false;lastDraw=null;sortHand();log("デバッグ暗槓：5p×4を配牌しました");render();}
 function setDebugKakan(){createWall();hand=["5p","1p","2p","3p","4s","6s","7s","東","南","白","中","9p","9s"];river=[];melds=[{type:"ポン",tile:"5p",tiles:["5p","5p","5p"]}];canDiscard=false;lastDraw=null;sortHand();log("デバッグ加槓：5pポン済み＋手牌5pを作成しました");render();}
+function setDebugFlowerDora(){createWall();doraIndicators=["春"];uraIndicators=["夏"];hand=["春","夏","秋","冬","1p","2p","3p","5p","5p","5p","5p","東","白"];river=[];melds=[];canDiscard=false;lastDraw=null;sortHand();log("花ドラ確認：ドラ表示牌を春にしました。全花牌がドラ2扱いです");render();}
 newGame();
 </script>
 </body>
