@@ -39,7 +39,8 @@ const state = {
 };
 
 const tileDefinitions = [
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ suit: "man", label: `${n}萬`, order: n })),
+  // Sprint 3 Block 3-1: 関西三麻仕様。萬子は1萬・9萬のみ。2萬〜8萬は使用しない。
+  ...[1, 9].map((n) => ({ suit: "man", label: `${n}萬`, order: n })),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ suit: "pin", label: `${n}筒`, order: 20 + n })),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ suit: "sou", label: `${n}索`, order: 40 + n })),
   { suit: "honor", label: "東", order: 61 },
@@ -120,7 +121,7 @@ function startGame() {
   }
 
   drawTile(currentSeat(), false);
-  dom.message.textContent = "東家から開始。あなたの手牌をクリックして打牌してください。";
+  dom.message.textContent = "関西三麻牌構成で開始。2萬〜8萬は山に入りません。";
   render();
   maybeRunAiTurn();
 }
@@ -219,7 +220,7 @@ function chooseAiDiscard(seat) {
   const hand = state.hands[seat];
   if (hand.length === 0) return null;
 
-  // Block 2では最小AI。孤立牌っぽい端・字牌を少し捨てやすくする。
+  // Block 3-1時点の最小AI。孤立牌っぽい端・字牌を少し捨てやすくする。
   const scored = hand.map((tile) => ({ tile, score: aiDiscardScore(tile, hand) }));
   scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
   return scored[0].tile;
