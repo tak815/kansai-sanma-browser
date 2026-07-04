@@ -223,19 +223,22 @@ button {
   left: 50%;
   bottom: 112px;
   transform: translateX(-50%);
-  grid-template-columns: repeat(8, 42px);
+  grid-template-columns: repeat(12, 42px);
+  grid-template-rows: repeat(3, 58px);
 }
 
 .river-south {
   right: 72px;
   top: 176px;
-  grid-template-columns: repeat(3, 42px);
+  grid-template-columns: repeat(12, 42px);
+  grid-template-rows: repeat(3, 58px);
 }
 
 .river-west {
   left: 72px;
   top: 176px;
-  grid-template-columns: repeat(3, 42px);
+  grid-template-columns: repeat(12, 42px);
+  grid-template-rows: repeat(3, 58px);
 }
 
 .flower-area,
@@ -352,6 +355,6 @@ button {
   }
 
   .river-east {
-    grid-template-columns: repeat(8, 36px);
+    grid-template-columns: repeat(12, 36px);
   }
 }

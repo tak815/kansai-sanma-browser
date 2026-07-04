@@ -36,10 +36,11 @@ const state = {
   },
   started: false,
   aiTimerId: null,
+  actionLocked: false,
 };
 
 const tileDefinitions = [
-  // Sprint 3 Block 3-1: 関西三麻仕様。萬子は1萬・9萬のみ。2萬〜8萬は使用しない。
+  // Sprint 3 Block 3-3: 関西三麻仕様。萬子は1萬・9萬のみ。2萬〜8萬は使用しない。
   ...[1, 9].map((n) => ({ suit: "man", label: `${n}萬`, order: n })),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ suit: "pin", label: `${n}筒`, order: 20 + n })),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ suit: "sou", label: `${n}索`, order: 40 + n })),
@@ -106,6 +107,7 @@ function startGame() {
   state.doraIndicator = state.wall.pop();
   state.turnIndex = 0;
   state.started = true;
+  state.actionLocked = false;
 
   for (const seat of SEATS) {
     state.hands[seat] = [];
@@ -142,6 +144,7 @@ function clearAiTimer() {
 }
 
 function nextTurn() {
+  state.actionLocked = false;
   state.turnIndex = (state.turnIndex + 1) % SEATS.length;
   const seat = currentSeat();
 
@@ -166,28 +169,67 @@ function nextTurn() {
 
 function drawTile(seat, shouldRender) {
   const tile = state.wall.pop();
-  if (!tile) return;
+  if (!tile) return null;
 
-  if (tile.suit === "flower") {
-    state.flowers[seat].push(tile);
-    drawTile(seat, shouldRender);
-    return;
-  }
-
+  // Block 3-3: 花牌は自動で抜かない。
+  // 手牌に入れて、プレイヤーまたはAIが任意タイミングで抜く。
   state.hands[seat].push(tile);
   sortHand(state.hands[seat]);
 
   if (shouldRender) render();
+  return tile;
+}
+
+function extractFlower(seat, tileId, options = {}) {
+  if (!state.started || seat !== currentSeat() || state.actionLocked) return false;
+
+  const hand = state.hands[seat];
+  const index = hand.findIndex((tile) => tile.id === tileId && tile.suit === "flower");
+  if (index === -1) return false;
+
+  const [tile] = hand.splice(index, 1);
+  state.flowers[seat].push(tile);
+
+  const drawn = drawTile(seat, false);
+  const prefix = isPlayerSeat(seat) ? "あなた" : SEAT_LABELS[seat];
+  dom.message.textContent = drawn
+    ? `${prefix}が花牌 ${tile.label} を抜き、補充牌を引きました。`
+    : `${prefix}が花牌 ${tile.label} を抜きました。`;
+
+  render();
+  return true;
+}
+
+function extractAiFlowers(seat) {
+  let extracted = false;
+  let guard = 0;
+
+  while (guard < 8) {
+    const flower = state.hands[seat].find((tile) => tile.suit === "flower");
+    if (!flower) break;
+    extractFlower(seat, flower.id, { ai: true });
+    extracted = true;
+    guard += 1;
+  }
+
+  return extracted;
 }
 
 function discardTile(seat, tileId, options = {}) {
-  if (!state.started || seat !== currentSeat()) return;
+  if (!state.started || seat !== currentSeat() || state.actionLocked) return;
 
   const hand = state.hands[seat];
   const index = hand.findIndex((tile) => tile.id === tileId);
   if (index === -1) return;
 
-  const [tile] = hand.splice(index, 1);
+  const tile = hand[index];
+  if (tile.suit === "flower") {
+    extractFlower(seat, tile.id, options);
+    return;
+  }
+
+  state.actionLocked = true;
+  hand.splice(index, 1);
   state.rivers[seat].push({ ...tile, riichi: false });
 
   const prefix = isPlayerSeat(seat) ? "あなた" : SEAT_LABELS[seat];
@@ -210,6 +252,7 @@ function maybeRunAiTurn() {
   const thinkMs = randomInt(AI_THINK_MIN_MS, AI_THINK_MAX_MS);
   state.aiTimerId = window.setTimeout(() => {
     state.aiTimerId = null;
+    extractAiFlowers(seat);
     const tile = chooseAiDiscard(seat);
     if (!tile) return;
     discardTile(seat, tile.id, { nextDelayMs: 420 });
@@ -217,10 +260,10 @@ function maybeRunAiTurn() {
 }
 
 function chooseAiDiscard(seat) {
-  const hand = state.hands[seat];
+  const hand = state.hands[seat].filter((tile) => tile.suit !== "flower");
   if (hand.length === 0) return null;
 
-  // Block 3-1時点の最小AI。孤立牌っぽい端・字牌を少し捨てやすくする。
+  // Block 3-3時点の最小AI。孤立牌っぽい端・字牌を少し捨てやすくする。
   const scored = hand.map((tile) => ({ tile, score: aiDiscardScore(tile, hand) }));
   scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
   return scored[0].tile;
@@ -287,6 +330,21 @@ function render() {
   }
 }
 
+function getRiverGridPosition(index) {
+  // 以前確定した仕様：7枚×3列。22枚目以降は3列目の後ろへ伸ばす。
+  if (index < 21) {
+    return {
+      column: (index % 7) + 1,
+      row: Math.floor(index / 7) + 1,
+    };
+  }
+
+  return {
+    column: index - 21 + 8,
+    row: 3,
+  };
+}
+
 function renderSeat(seat) {
   const handElement = document.getElementById(`hand-${seat}`);
   const riverElement = document.getElementById(`river-${seat}`);
@@ -298,7 +356,7 @@ function renderSeat(seat) {
   flowerElement.innerHTML = "";
   meldElement.innerHTML = "";
 
-  const canClick = seat === currentSeat() && state.started && isPlayerSeat(seat);
+  const canClick = seat === currentSeat() && state.started && isPlayerSeat(seat) && !state.actionLocked;
 
   for (const tile of state.hands[seat]) {
     const element = createTileElement(tile, {
@@ -307,15 +365,26 @@ function renderSeat(seat) {
     });
 
     if (canClick) {
-      element.addEventListener("click", () => discardTile(seat, tile.id));
+      element.title = tile.suit === "flower" ? "花牌を抜く" : "打牌する";
+      element.addEventListener("click", () => {
+        if (tile.suit === "flower") {
+          extractFlower(seat, tile.id);
+        } else {
+          discardTile(seat, tile.id);
+        }
+      });
     }
 
     handElement.appendChild(element);
   }
 
-  for (const tile of state.rivers[seat]) {
-    riverElement.appendChild(createTileElement(tile, { discarded: true }));
-  }
+  state.rivers[seat].forEach((tile, index) => {
+    const element = createTileElement(tile, { discarded: true });
+    const position = getRiverGridPosition(index);
+    element.style.gridColumn = String(position.column);
+    element.style.gridRow = String(position.row);
+    riverElement.appendChild(element);
+  });
 
   for (const tile of state.flowers[seat]) {
     flowerElement.appendChild(createTileElement(tile, { small: true }));
