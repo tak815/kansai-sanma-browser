@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.8-5</title>
+<title>関西三麻 試作 v0.3.9-1</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -17,7 +17,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.8-5 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.9-1 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -30,6 +30,8 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div>表ドラ：<b id="frontDoraTotal"></b></div>
       <div>裏ドラ：<b id="uraDoraTotal"></b></div>
       <div>合計ドラ：<b id="handDoraTotal"></b></div>
+      <div>向聴：<b id="shantenLabel">-</b></div>
+      <div>待ち：<b id="waitsLabel">-</b></div>
       <div>状態：<b id="stateText">開始</b></div>
       <div>手牌枚数：<b id="handCountDebug">自家13 / 南家13 / 西家13</b></div>
       <div>河枚数：<b id="riverCountDebug">自家0 / 南家0 / 西家0</b></div>
@@ -42,6 +44,8 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button class="btn btn-debug" onclick="setDebugAnkan()">デバッグ暗槓</button>
       <button class="btn btn-debug" onclick="setDebugKakan()">デバッグ加槓</button>
       <button class="btn btn-debug" onclick="setDebugKanBlocked()">カン不可確認</button>
+      <button class="btn btn-debug" onclick="setDebugTenpai()">聴牌確認</button>
+      <button class="btn btn-debug" onclick="setDebugIishanten()">一向聴確認</button>
       <button class="btn btn-debug" onclick="setDebugFlowerDora()">花ドラ確認</button>
       <button class="btn btn-debug" onclick="setDebugNukiFlower()">抜き花確認</button>
       <button class="btn btn-debug" onclick="setDebugUraDora()">裏ドラ確認</button>
@@ -75,6 +79,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div class="area-title">あなたの手牌</div>
       <div id="hand" class="hand"></div>
       <div class="note warning" id="kanHint"></div>
+      <div class="debug-line" id="shantenBreakdown"></div>
       <div class="debug-line" id="doraBreakdown"></div>
     </div>
     <div class="panel">
@@ -86,7 +91,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div id="riverSouth" class="river"></div>
       <div class="area-title">西家の河</div>
       <div id="riverWest" class="river"></div>
-      <div class="note">v0.3.8-5確認用：暗槓・加槓・嶺上補充・カンドラ追加・カン不可条件を確認できます。</div>
+      <div class="note">v0.3.9-1確認用：シャンテン・テンパイ・待ち表示を確認できます。</div>
     </div>
   </section>
 </main>
@@ -110,7 +115,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.8-5",
+    version:"v0.3.9-1",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -149,7 +154,7 @@ const GameController={
     gameState.turnIndex=SEATS.indexOf(gameState.currentSeat);
     this.setPhase(GamePhase.DRAW);
     debugAiPaused=false;
-    log("Sprint 3-8-5：カン基盤を有効にして開始しました");
+    log("Sprint 3-9-1：シャンテン・テンパイ判定基盤を有効にして開始しました");
     render();
   },
   drawForCurrentSeat(){
@@ -265,6 +270,26 @@ function countDoraDetailForTile(tile){const baseFlower=FLOWERS.has(tile)?1:0;con
 function getHandDoraInfo(){const rows=[];const summary={baseFlower:0,front:0,ura:0,total:0};hand.forEach(tile=>{const d=countDoraDetailForTile(tile);summary.baseFlower+=d.baseFlower;summary.front+=d.front;summary.ura+=d.ura;summary.total+=d.total;if(d.total>0){const parts=[];if(d.baseFlower)parts.push(`花${d.baseFlower}`);if(d.front)parts.push(`表${d.front}`);if(d.ura)parts.push(`裏${d.ura}`);rows.push(`${tile}:ドラ${d.total}(${parts.join("+")})`);}});return {summary,rows};}
 function doraIndicatorLabel(){const frontTargets=getDoraTargets(doraIndicators);const uraTargets=riichiDeclared?getDoraTargets(uraIndicators):[];return `表対象:${frontTargets.join(",")||"なし"} / 裏対象:${riichiDeclared?(uraTargets.join(",")||"なし"):"リーチ時のみ"}`;}
 
+
+
+const SHANTEN_TILES=["1m","9m","1p","2p","3p","4p","5p","6p","7p","8p","9p","1s","2s","3s","4s","5s","6s","7s","8s","9s","東","南","西","北","白","發","中"];
+const SHANTEN_INDEX=Object.fromEntries(SHANTEN_TILES.map((t,i)=>[t,i]));
+function isSequenceStartIndex(i){const t=SHANTEN_TILES[i];return /^[1-7][ps]$/.test(t);}
+function handMaterialTiles(seat=PLAYER_SEAT){return gameState.hands[seat].filter(t=>!FLOWERS.has(t));}
+function tileCountsForShanten(tiles){const arr=Array(SHANTEN_TILES.length).fill(0);tiles.forEach(t=>{if(SHANTEN_INDEX[t]!==undefined)arr[SHANTEN_INDEX[t]]++;});return arr;}
+function countOpenMeldsForShanten(seat=PLAYER_SEAT){return (gameState.melds[seat]||[]).filter(m=>m&&m.type).length;}
+function calcChiitoiShanten(counts,openMelds){if(openMelds>0)return 99;let pairs=0,unique=0;counts.forEach(c=>{if(c>0)unique++;if(c>=2)pairs++;});return 6-pairs+Math.max(0,7-unique);}
+function calcNormalShanten(counts,openMelds){let best=8;const maxClosedMelds=Math.max(0,4-openMelds);const memo=new Set();function dfs(c,m,t,pair){const key=c.join("")+`|${m}|${t}|${pair}`;if(memo.has(key))return;memo.add(key);let i=0;while(i<c.length&&c[i]===0)i++;if(i>=c.length){const totalMelds=m+openMelds;const cappedT=Math.min(t,Math.max(0,4-totalMelds));const sh=8-totalMelds*2-cappedT-pair;best=Math.min(best,sh);return;}
+  // 孤立牌を1枚スキップする分岐。これがないと、西などの孤立牌で探索が止まり、8向聴などに誤判定される。
+  c[i]--;dfs(c,m,t,pair);c[i]++;
+  if(c[i]>=3&&m<maxClosedMelds){c[i]-=3;dfs(c,m+1,t,pair);c[i]+=3;}if(isSequenceStartIndex(i)&&c[i+1]>0&&c[i+2]>0&&m<maxClosedMelds){c[i]--;c[i+1]--;c[i+2]--;dfs(c,m+1,t,pair);c[i]++;c[i+1]++;c[i+2]++;}if(c[i]>=2){c[i]-=2;if(!pair)dfs(c,m,t,1);dfs(c,m,t+1,pair);c[i]+=2;}if(isSequenceStartIndex(i)&&c[i+1]>0){c[i]--;c[i+1]--;dfs(c,m,t+1,pair);c[i]++;c[i+1]++;}if(isSequenceStartIndex(i)&&c[i+2]>0){c[i]--;c[i+2]--;dfs(c,m,t+1,pair);c[i]++;c[i+2]++;}}
+dfs(counts.slice(),0,0,0);return best;}
+function calcShantenInfo(seat=PLAYER_SEAT){const material=handMaterialTiles(seat);const openMelds=countOpenMeldsForShanten(seat);const counts=tileCountsForShanten(material);const normal=calcNormalShanten(counts,openMelds);const chiitoi=calcChiitoiShanten(counts,openMelds);const shanten=Math.min(normal,chiitoi);return {material,openMelds,normal,chiitoi,shanten};}
+function shantenText(n){if(n<=-1)return "和了形";if(n===0)return "聴牌";return `${n}向聴`;}
+function calcWaits(seat=PLAYER_SEAT){const info=calcShantenInfo(seat);if(info.shanten!==0)return [];
+const baseCounts=tileCountsForShanten(info.material);const waits=[];SHANTEN_TILES.forEach(t=>{const idx=SHANTEN_INDEX[t];if(baseCounts[idx]>=4)return;const test=info.material.concat(t);const counts=tileCountsForShanten(test);const normal=calcNormalShanten(counts,info.openMelds);const chiitoi=calcChiitoiShanten(counts,info.openMelds);if(Math.min(normal,chiitoi)<=-1)waits.push(t);});return waits;}
+function updateShantenDebug(){const info=calcShantenInfo(PLAYER_SEAT);const waits=calcWaits(PLAYER_SEAT);const sh=document.getElementById("shantenLabel");const wl=document.getElementById("waitsLabel");const bd=document.getElementById("shantenBreakdown");if(sh)sh.textContent=shantenText(info.shanten);if(wl)wl.textContent=waits.length?waits.join(" / "):"-";if(bd)bd.textContent=`シャンテン内訳：通常形 ${shantenText(info.normal)} / 七対子 ${info.chiitoi>=90?"副露あり対象外":shantenText(info.chiitoi)} / 有効牌数 ${info.material.length} / 副露${info.openMelds}`;}
+
 function log(msg){const el=document.getElementById("log");const row=document.createElement("div");row.textContent=msg;el.prepend(row);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function createWall(){wall=[];rinshanPile=[];doraIndicators=[];uraIndicators=[];riichiDeclared=false;["1m","9m"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});for(let n=1;n<=9;n++){for(let i=0;i<4;i++){wall.push(n+"p");wall.push(n+"s");}}["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});shuffle(wall);rinshanPile=wall.splice(0,8);const initialDora=wall.pop();const initialUra=wall.pop();if(initialDora)doraIndicators=[initialDora];if(initialUra)uraIndicators=[initialUra];}
@@ -293,7 +318,7 @@ function debugSetUraPrompt(){const t=normalizeDebugTile(prompt("裏ドラ表示�
 function debugFixWall(){wall=[];const seq=["1p","2p","3p","4p","5p","6p","7p","8p","9p","1s","2s","3s","4s","5s","6s","7s","8s","9s","東","南","西","北","白","發","中"];for(let i=0;i<4;i++)wall.push(...seq);log("山固定：確認用の固定順山にしました");render();}
 function toggleDebugAiPause(){debugAiPaused=!debugAiPaused;clearAiTimer();log(debugAiPaused?"AI停止：CPU手番で自動進行しません":"AI再開：CPU手番なら自動進行します");render();if(!debugAiPaused&&!TurnManager.isPlayer()){if(canDiscard)scheduleAiDiscard();else scheduleAiDraw();}}
 function phaseText(){const map={INIT:"初期化",DEAL:"配牌",DRAW:"ツモ待ち",ACTION:"打牌してください",DISCARD:"打牌処理",NEXT_PLAYER:"次手番へ",RYUKYOKU:"流局"};return map[gameState.phase]||gameState.phase;}
-function render(){bindPlayerAliases();document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;document.getElementById("stateText").textContent=`${phaseText()} / ${gameState.roundWind}${gameState.handNumber}局 / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
+function render(){bindPlayerAliases();document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;document.getElementById("stateText").textContent=`${phaseText()} / ${gameState.roundWind}${gameState.handNumber}局 / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;updateShantenDebug();const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
   const h=document.getElementById("hand");h.innerHTML="";hand.forEach((t,i)=>h.appendChild(tileNode(t,"tile",()=>discard(i))));const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(tileNode(t,"tile small")));const rSouth=document.getElementById("riverSouth");if(rSouth){rSouth.innerHTML="";gameState.rivers.south.forEach(t=>rSouth.appendChild(tileNode(t,"tile small")));}const rWest=document.getElementById("riverWest");if(rWest){rWest.innerHTML="";gameState.rivers.west.forEach(t=>rWest.appendChild(tileNode(t,"tile small")));}const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!(TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0);const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");}
 
 function drawTile(){if(!TurnManager.isPlayer()){log("CPU手番は自動進行中です");return;}if(canDiscard){alert("先に捨ててください");return;}GameController.drawForCurrentSeat();}
@@ -313,6 +338,9 @@ function setDebugFlowerDora(){resetDebugBase();doraIndicators=["春"];uraIndicat
 function setDebugNukiFlower(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["春","1p","2p","3p","4p","5p","6p","7s","8s","9s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("抜き花確認：春を持った打牌前状態です。抜き花ボタンで嶺上補充を確認してください");render();}
 
 function setDebugUraDora(){resetDebugBase();doraIndicators=["1p","春"];uraIndicators=["2p","夏"];gameState.hands[PLAYER_SEAT]=["2p","3p","春","夏","秋","冬","5p","5p","5p","東","南","白","中"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=true;canDiscard=false;lastDraw=null;sortHand();log("裏ドラ確認：リーチ済み扱い。表ドラ・裏ドラ・花牌重複を表示します");render();}
+
+function setDebugTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("聴牌確認：東単騎待ちの13枚形を作成しました");render();}
+function setDebugIishanten(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","2s","3s","4s","東","白"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("一向聴確認：通常形の一向聴サンプルを作成しました");render();}
 
 gameState=createInitialGameState();bindPlayerAliases();newGame();
 </script>
