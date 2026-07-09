@@ -130,7 +130,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.9-4",
+    version:"v0.3.9-5-fix1",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -172,7 +172,7 @@ const GameController={
     this.setPhase(GamePhase.DRAW);
     debugAiPaused=false;
     pendingWin=null;
-    log("Sprint 3-9-4：役判定基盤を有効にして開始しました");
+    log("v0.3.9-5 Fix1：役・ドラ・花牌修正を有効にして開始しました");
     render();
   },
   drawForCurrentSeat(){
@@ -292,9 +292,26 @@ function getDoraTargets(indicators){
   return targets;
 }
 function countByIndicators(tile, indicators){let total=0;getDoraTargets(indicators).forEach(target=>{if(target===tile)total+=1;});return total;}
-function countDoraDetailForTile(tile){const baseFlower=FLOWERS.has(tile)?1:0;const front=countByIndicators(tile,doraIndicators);const ura=riichiDeclared?countByIndicators(tile,uraIndicators):0;return {baseFlower,front,ura,total:baseFlower+front+ura};}
-function getHandDoraInfo(){const rows=[];const summary={baseFlower:0,front:0,ura:0,total:0};hand.forEach(tile=>{const d=countDoraDetailForTile(tile);summary.baseFlower+=d.baseFlower;summary.front+=d.front;summary.ura+=d.ura;summary.total+=d.total;if(d.total>0){const parts=[];if(d.baseFlower)parts.push(`花${d.baseFlower}`);if(d.front)parts.push(`表${d.front}`);if(d.ura)parts.push(`裏${d.ura}`);rows.push(`${tile}:ドラ${d.total}(${parts.join("+")})`);}});return {summary,rows};}
-function doraIndicatorLabel(){const frontTargets=getDoraTargets(doraIndicators);const uraTargets=riichiDeclared?getDoraTargets(uraIndicators):[];return `表対象:${frontTargets.join(",")||"なし"} / 裏対象:${riichiDeclared?(uraTargets.join(",")||"なし"):"リーチ時のみ"}`;}
+function countDoraDetailForTile(tile, uraEnabled=riichiDeclared){
+  const baseFlower=FLOWERS.has(tile)?1:0; // 花牌そのものは常時1ドラ。
+  const front=countByIndicators(tile,doraIndicators);
+  const ura=uraEnabled?countByIndicators(tile,uraIndicators):0;
+  return {baseFlower,front,ura,total:baseFlower+front+ura};
+}
+function doraTilesForSeat(seat=PLAYER_SEAT, extraTile=null){
+  const tiles=gameState.hands[seat].slice();
+  if(extraTile)tiles.push(extraTile);
+  (gameState.melds[seat]||[]).forEach(m=>(m.tiles||[]).forEach(t=>tiles.push(t)));
+  (gameState.flowers[seat]||[]).forEach(t=>tiles.push(t)); // 抜き花もドラ計算対象。
+  return tiles;
+}
+function summarizeDoraTiles(tiles, uraEnabled=riichiDeclared){
+  const rows=[];const summary={baseFlower:0,front:0,ura:0,total:0};
+  tiles.forEach(tile=>{const d=countDoraDetailForTile(tile,uraEnabled);summary.baseFlower+=d.baseFlower;summary.front+=d.front;summary.ura+=d.ura;summary.total+=d.total;if(d.total>0){const parts=[];if(d.baseFlower)parts.push(`花${d.baseFlower}`);if(d.front)parts.push(`表${d.front}`);if(d.ura)parts.push(`裏${d.ura}`);rows.push(`${tile}:ドラ${d.total}(${parts.join("+")})`);}});
+  return {summary,rows};
+}
+function getHandDoraInfo(){return summarizeDoraTiles(doraTilesForSeat(PLAYER_SEAT),riichiDeclared||gameState.riichi[PLAYER_SEAT]);}
+function doraIndicatorLabel(){const frontTargets=getDoraTargets(doraIndicators);const uraTargets=(riichiDeclared||gameState.riichi[PLAYER_SEAT])?getDoraTargets(uraIndicators):[];return `表対象:${frontTargets.join(",")||"なし"} / 裏対象:${(riichiDeclared||gameState.riichi[PLAYER_SEAT])?(uraTargets.join(",")||"なし"):"リーチ時のみ"}`;}
 
 const HONORS=new Set(["東","南","西","北","白","發","中"]);
 function isTerminal(tile){return tile==="1m"||tile==="9m"||/^([19])[ps]$/.test(tile);}
@@ -347,6 +364,10 @@ function isHonitsuTiles(tiles){
   const hasHonor=tiles.some(isHonor);
   return suits.size===1&&hasHonor;
 }
+function isChinitsuTiles(tiles){
+  const suits=new Set(tiles.map(suitOf).filter(Boolean));
+  return tiles.length>0 && suits.size===1 && tiles.every(t=>!!suitOf(t));
+}
 function countYakuhaiMelds(seat){
   let n=0;
   (gameState.melds[seat]||[]).forEach(m=>{
@@ -364,12 +385,8 @@ function isToitoiLike(seat, extraTile=null){
   return pairCount===1 && tripletCount>=4;
 }
 function countDoraForSeat(seat, extraTile=null){
-  const tiles=gameState.hands[seat].slice();
-  if(extraTile)tiles.push(extraTile);
-  (gameState.melds[seat]||[]).forEach(m=>(m.tiles||[]).forEach(t=>tiles.push(t)));
-  const summary={baseFlower:0,front:0,ura:0,total:0};
-  tiles.forEach(tile=>{const d=countDoraDetailForTile(tile);summary.baseFlower+=d.baseFlower;summary.front+=d.front;summary.ura+=d.ura;summary.total+=d.total;});
-  return summary;
+  const uraEnabled=riichiDeclared||gameState.riichi[seat];
+  return summarizeDoraTiles(doraTilesForSeat(seat,extraTile),uraEnabled).summary;
 }
 function evaluateYaku(seat=PLAYER_SEAT, win=null){
   const extraTile=win&&win.type==="ron"?win.tile:null;
@@ -383,7 +400,8 @@ function evaluateYaku(seat=PLAYER_SEAT, win=null){
   const yakuhai=countYakuhaiMelds(seat);
   if(yakuhai>0){yaku.push({name:`役牌×${yakuhai}`,han:yakuhai});baseHan+=yakuhai;}
   if(isToitoiLike(seat,extraTile)){yaku.push({name:"トイトイ",han:2});baseHan+=2;}
-  if(isHonitsuTiles(tiles)){const han=open?2:3;yaku.push({name:open?"ホンイツ（食い下がり）":"ホンイツ",han});baseHan+=han;}
+  if(isChinitsuTiles(tiles)){const han=open?5:6;yaku.push({name:open?"チンイツ（食い下がり）":"チンイツ",han});baseHan+=han;}
+  else if(isHonitsuTiles(tiles)){const han=open?2:3;yaku.push({name:open?"ホンイツ（食い下がり）":"ホンイツ",han});baseHan+=han;}
   const tanyao=isTanyaoTiles(tiles);
   let tanyaoSuppressed=false;
   if(tanyao){
@@ -428,15 +446,35 @@ function calcNormalShanten(counts,openMelds){let best=8;const maxClosedMelds=Mat
   c[i]--;dfs(c,m,t,pair);c[i]++;
   if(c[i]>=3&&m<maxClosedMelds){c[i]-=3;dfs(c,m+1,t,pair);c[i]+=3;}if(isSequenceStartIndex(i)&&c[i+1]>0&&c[i+2]>0&&m<maxClosedMelds){c[i]--;c[i+1]--;c[i+2]--;dfs(c,m+1,t,pair);c[i]++;c[i+1]++;c[i+2]++;}if(c[i]>=2){c[i]-=2;if(!pair)dfs(c,m,t,1);dfs(c,m,t+1,pair);c[i]+=2;}if(isSequenceStartIndex(i)&&c[i+1]>0){c[i]--;c[i+1]--;dfs(c,m,t+1,pair);c[i]++;c[i+1]++;}if(isSequenceStartIndex(i)&&c[i+2]>0){c[i]--;c[i+2]--;dfs(c,m,t+1,pair);c[i]++;c[i+2]++;}}
 dfs(counts.slice(),0,0,0);return best;}
-function calcShantenInfo(seat=PLAYER_SEAT){const material=handMaterialTiles(seat);const openMelds=countOpenMeldsForShanten(seat);const counts=tileCountsForShanten(material);const normal=calcNormalShanten(counts,openMelds);const chiitoi=calcChiitoiShanten(counts,openMelds);const shanten=Math.min(normal,chiitoi);return {material,openMelds,normal,chiitoi,shanten};}
+function canFormExactMelds(counts,need){
+  let i=0;while(i<counts.length&&counts[i]===0)i++;
+  if(i>=counts.length)return need===0;
+  if(need<=0)return false;
+  if(counts[i]>=3){counts[i]-=3;if(canFormExactMelds(counts,need-1)){counts[i]+=3;return true;}counts[i]+=3;}
+  if(isSequenceStartIndex(i)&&counts[i+1]>0&&counts[i+2]>0){counts[i]--;counts[i+1]--;counts[i+2]--;if(canFormExactMelds(counts,need-1)){counts[i]++;counts[i+1]++;counts[i+2]++;return true;}counts[i]++;counts[i+1]++;counts[i+2]++;}
+  return false;
+}
+function isCompleteNormalCounts(counts,openMelds){
+  const need=4-openMelds;if(need<0)return false;
+  for(let i=0;i<counts.length;i++){
+    if(counts[i]>=2){counts[i]-=2;if(canFormExactMelds(counts,need)){counts[i]+=2;return true;}counts[i]+=2;}
+  }
+  return false;
+}
+function isCompleteChiitoiCounts(counts,openMelds){return openMelds===0&&counts.filter(c=>c===2).length===7&&counts.every(c=>c===0||c===2);}
+function isCompleteHandMaterial(material,openMelds){
+  const counts=tileCountsForShanten(material);
+  return isCompleteNormalCounts(counts.slice(),openMelds)||isCompleteChiitoiCounts(counts,openMelds);
+}
+function calcShantenInfo(seat=PLAYER_SEAT){const material=handMaterialTiles(seat);const openMelds=countOpenMeldsForShanten(seat);const counts=tileCountsForShanten(material);const normal=calcNormalShanten(counts,openMelds);const chiitoi=calcChiitoiShanten(counts,openMelds);let shanten=Math.min(normal,chiitoi);if(isCompleteHandMaterial(material,openMelds))shanten=-1;return {material,openMelds,normal,chiitoi,shanten};}
 function shantenText(n){if(n<=-1)return "和了形";if(n===0)return "聴牌";return `${n}向聴`;}
 function calcWaits(seat=PLAYER_SEAT){const info=calcShantenInfo(seat);if(info.shanten!==0)return [];
-const baseCounts=tileCountsForShanten(info.material);const waits=[];SHANTEN_TILES.forEach(t=>{const idx=SHANTEN_INDEX[t];if(baseCounts[idx]>=4)return;const test=info.material.concat(t);const counts=tileCountsForShanten(test);const normal=calcNormalShanten(counts,info.openMelds);const chiitoi=calcChiitoiShanten(counts,info.openMelds);if(Math.min(normal,chiitoi)<=-1)waits.push(t);});return waits;}
+const baseCounts=tileCountsForShanten(info.material);const waits=[];SHANTEN_TILES.forEach(t=>{const idx=SHANTEN_INDEX[t];if(baseCounts[idx]>=4)return;const test=info.material.concat(t);if(isCompleteHandMaterial(test,info.openMelds))waits.push(t);});return waits;}
 function updateShantenDebug(){const info=calcShantenInfo(PLAYER_SEAT);const waits=calcWaits(PLAYER_SEAT);const sh=document.getElementById("shantenLabel");const wl=document.getElementById("waitsLabel");const bd=document.getElementById("shantenBreakdown");if(sh)sh.textContent=shantenText(info.shanten);if(wl)wl.textContent=waits.length?waits.join(" / "):"-";if(bd)bd.textContent=`シャンテン内訳：通常形 ${shantenText(info.normal)} / 七対子 ${info.chiitoi>=90?"副露あり対象外":shantenText(info.chiitoi)} / 有効牌数 ${info.material.length} / 副露${info.openMelds}`;}
 
 function log(msg){const el=document.getElementById("log");const row=document.createElement("div");row.textContent=msg;el.prepend(row);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function createWall(){wall=[];rinshanPile=[];doraIndicators=[];uraIndicators=[];riichiDeclared=false;["1m","9m"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});for(let n=1;n<=9;n++){for(let i=0;i<4;i++){wall.push(n+"p");wall.push(n+"s");}}["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});shuffle(wall);rinshanPile=wall.splice(0,8);const initialDora=wall.pop();const initialUra=wall.pop();if(initialDora)doraIndicators=[initialDora];if(initialUra)uraIndicators=[initialUra];}
+function createWall(){wall=[];rinshanPile=[];doraIndicators=[];uraIndicators=[];riichiDeclared=false;["1m","9m"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});for(let n=1;n<=9;n++){for(let i=0;i<4;i++){wall.push(n+"p");wall.push(n+"s");}}["東","南","西","北","白","發","中"].forEach(t=>{for(let i=0;i<4;i++)wall.push(t);});["春","夏","秋","冬"].forEach(t=>wall.push(t));shuffle(wall);rinshanPile=wall.splice(0,8);const initialDora=wall.pop();const initialUra=wall.pop();if(initialDora)doraIndicators=[initialDora];if(initialUra)uraIndicators=[initialUra];}
 function sortSeatHand(seat){gameState.hands[seat].sort((a,b)=>(order[a]||999)-(order[b]||999));}
 function sortHand(){sortSeatHand(PLAYER_SEAT);}
 function tileValue(t){return (t&&typeof t==="object")?t.tile:t;}
@@ -470,9 +508,8 @@ function render(){bindPlayerAliases();document.getElementById("remain").textCont
 function isWinningHandForSeat(seat, extraTile=null){
   const material=handMaterialTiles(seat).slice();
   if(extraTile&&!FLOWERS.has(extraTile))material.push(extraTile);
-  const counts=tileCountsForShanten(material);
   const openMelds=countOpenMeldsForShanten(seat);
-  return Math.min(calcNormalShanten(counts,openMelds),calcChiitoiShanten(counts,openMelds))<=-1;
+  return isCompleteHandMaterial(material,openMelds);
 }
 function checkTsumoWinAfterDraw(seat){
   if(!isWinningHandForSeat(seat))return false;
@@ -594,24 +631,24 @@ function setDebugOpenTanyaoOnly(){
 }
 function setDebugOpenTanyaoToitoi(){
   resetDebugBase();
-  gameState.hands[PLAYER_SEAT]=["2p","2p","5p","5p","5p","6p","6p","6p"];
+  gameState.hands[PLAYER_SEAT]=["2p","2p","2p","5p","5p","6p","6p","6p"];
   gameState.melds[PLAYER_SEAT]=[{type:"ポン",tile:"3p",tiles:["3p","3p","3p"]},{type:"ポン",tile:"8p",tiles:["8p","8p","8p"]}];
-  bindPlayerAliases();gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=0;canDiscard=true;lastDraw="6p";pendingWin={type:"tsumo",winner:PLAYER_SEAT,from:PLAYER_SEAT,tile:"6p",skippable:true};
+  doraIndicators=["1p"];
+  bindPlayerAliases();sortSeatHand(PLAYER_SEAT);gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=0;canDiscard=true;lastDraw="6p";pendingWin={type:"tsumo",winner:PLAYER_SEAT,from:PLAYER_SEAT,tile:"6p",skippable:true};
   GameController.setPhase(GamePhase.AGARI);
-  log("食いタン＋トイトイ確認：食いタン1翻＋トイトイ2翻＝3翻の想定です");
+  log("食いタン＋トイトイ確認：副露チンイツ5＋トイトイ2＋食いタン1＋ドラ3＝11翻想定です");
   render();
 }
 function setDebugKazoeBorder(){
   resetDebugBase();
-  gameState.hands[PLAYER_SEAT]=["春","夏","秋","冬","2p","3p","4p","3p","4p","5p","6p","7p","8p","東"];
   gameState.flowers[PLAYER_SEAT]=["春","夏","秋","冬"];
-  gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","東"];
+  gameState.hands[PLAYER_SEAT]=["2p","3p","3p","4p","4p","5p","6p","7p","8p","2s","3s","4s","東","東"];
   doraIndicators=["1p","2p","3p","4p","春"];
   uraIndicators=["1s","2s","夏"];
   gameState.riichi[PLAYER_SEAT]=true;riichiDeclared=true;
-  bindPlayerAliases();gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=0;canDiscard=true;lastDraw="東";pendingWin={type:"tsumo",winner:PLAYER_SEAT,from:PLAYER_SEAT,tile:"東",skippable:false};
+  bindPlayerAliases();sortSeatHand(PLAYER_SEAT);gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=0;canDiscard=true;lastDraw="東";pendingWin={type:"tsumo",winner:PLAYER_SEAT,from:PLAYER_SEAT,tile:"東",skippable:false};
   GameController.setPhase(GamePhase.AGARI);
-  log("13/14翻確認：表示翻数が11〜13は三倍満、14以上は数え役満になることを確認してください");
+  log("13/14翻確認：手牌はリーパイ順。11〜13は三倍満、14以上は数え役満になることを確認してください");
   render();
 }
 

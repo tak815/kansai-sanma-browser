@@ -1,48 +1,17 @@
-# Project KSB Sprint 3-7B-1 修正版
+Project KSB v0.3.9-5 Fix1
 
-目的: 花牌がドラ表示牌・裏ドラ表示牌になったときの判定バグ修正。
+修正内容:
+- 清一色（チンイツ）判定を追加（門前6翻／副露5翻）
+- 抜き花エリアの花牌をドラ計算に含めるよう修正
+- 表ドラ・裏ドラ・花牌ドラの集計を共通化
+- 花牌の山生成を春夏秋冬各1枚に修正
+- 13/14翻確認の手牌をリーパイ順に修正
+- 和了形判定と待ち牌判定を完全形探索に寄せて誤判定を軽減
+- 食いタン＋トイトイ確認をチンイツ・ドラ確認もできる形へ更新
 
-## 入っているもの
-
-- `src/domain/dora.ts`
-  - 共通ドラ判定モジュール
-- `src/domain/dora.test.ts`
-  - 確認用テスト
-- `docs/SYSTEM_SPEC_addendum.md`
-  - SYSTEM_SPEC.md へ追記する内容
-- `docs/CHANGELOG_addendum.md`
-  - CHANGELOG.md へ追記する内容
-
-## 反映方法
-
-1. ZIPを解凍する
-2. `src/domain/dora.ts` をプロジェクトの同じ場所へコピー
-   - `src/domain` がなければ作成
-3. 既存の点数計算・ドラ計算箇所で、次牌計算の代わりに以下を使う
-
-```ts
-import { countDoraInTiles } from './domain/dora';
-
-const visibleDoraCount = countDoraInTiles(scoringTiles, doraIndicators);
-const uraDoraCount = countDoraInTiles(scoringTiles, uraDoraIndicators);
-const totalDora = visibleDoraCount + uraDoraCount + akaDoraCount + flowerBonusCount;
-```
-
-パスは既存ファイル位置に合わせて調整してください。
-
-## 確認ケース
-
-- ドラ表示牌が `春` のとき、春・夏・秋・冬すべてがドラになる
-- 裏ドラ表示牌が `夏` のとき、春・夏・秋・冬すべてが裏ドラになる
-- ドラ表示牌 `春`、裏ドラ表示牌 `夏` のとき、花牌1枚が2ドラになる
-- 通常表示牌 `2p` のとき、`3p` がドラになる
-- 裏ドラ表示牌 `2p` のとき、`3p` が裏ドラになる
-
-## Git保存
-
-```bash
-git status
-git add .
-git commit -m "fix: handle flower dora indicators"
-git push
-```
+確認ポイント:
+1. 食いタンのみ確認で、ツモ和了時に「食いタンのみ不可」が出る
+2. 食いタン＋トイトイ確認で、チンイツ・ドラが加算される
+3. 花ドラ確認で、抜き花もドラ計算に入る
+4. 13/14翻確認で、手牌が数字順に並ぶ
+5. 通常対局で同じ花牌が複数生成されない
