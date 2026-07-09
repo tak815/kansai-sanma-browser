@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.10-2</title>
+<title>関西三麻 試作 v0.3.10-3</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -17,7 +17,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.10-2 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.10-3 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -52,6 +52,8 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button id="skipRonButton" class="btn" onclick="skipRon()">ロン見送り</button>
       <button id="kanButton" class="btn btn-kan" onclick="openKanChoices()">カン</button>
       <button id="nextRoundButton" class="btn btn-primary" onclick="startNextRound()">次局へ</button>
+      <button class="btn btn-debug" onclick="debugRyukyokuDealerTenpai()">親テンパイ流局</button>
+      <button class="btn btn-debug" onclick="debugRyukyokuDealerNoten()">親ノーテン流局</button>
       <button class="btn btn-debug" onclick="setDebugAnkan()">デバッグ暗槓</button>
       <button class="btn btn-debug" onclick="setDebugKakan()">デバッグ加槓</button>
       <button class="btn btn-debug" onclick="setDebugKanBlocked()">カン不可確認</button>
@@ -108,7 +110,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div id="riverSouth" class="river"></div>
       <div class="area-title">西家の河</div>
       <div id="riverWest" class="river"></div>
-      <div class="note">v0.3.10-2確認用：局終了後の次局開始、親流れ、連荘、本場、供託引き継ぎを確認できます。</div>
+      <div class="note">v0.3.10-3確認用：流局時の親テンパイ連荘、親ノーテン親流れ、本場+1、供託持越しを確認できます。</div>
     </div>
   </section>
 </main>
@@ -132,7 +134,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.10-2",
+    version:"v0.3.10-3",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -193,16 +195,37 @@ function makeNextRoundCarryAfterAgari(win){
     points:Object.assign({},gameState.points)
   };
 }
-function makeNextRoundCarryAfterRyukyoku(){
+function makeNextRoundCarryAfterRyukyoku(tenpaiMap=null){
+  const dealerTenpai=tenpaiMap ? !!tenpaiMap[gameState.dealer] : true;
+  const pos=dealerTenpai?{roundWind:gameState.roundWind,handNumber:gameState.handNumber}:advanceRoundPosition(gameState.roundWind,gameState.handNumber);
   return {
-    roundWind:gameState.roundWind,
-    handNumber:gameState.handNumber,
+    roundWind:pos.roundWind,
+    handNumber:pos.handNumber,
     honba:(gameState.honba||0)+1,
     deposit:gameState.deposit||0,
-    dealer:gameState.dealer,
-    points:Object.assign({},gameState.points)
+    dealer:dealerTenpai?gameState.dealer:nextSeatOf(gameState.dealer),
+    points:Object.assign({},gameState.points),
+    ryukyokuDealerTenpai:dealerTenpai
   };
 }
+function currentTenpaiMap(){
+  const map={};
+  SEATS.forEach(seat=>{
+    try{map[seat]=calcShantenInfo(seat).shanten<=0;}catch(e){map[seat]=false;}
+  });
+  return map;
+}
+function ryukyokuTenpaiText(map){return SEATS.map(seat=>`${SEAT_LABELS[seat]}${map[seat]?"聴牌":"ノーテン"}`).join(" / ");}
+function applyRyukyokuNotenPayment(map){
+  const tenpai=SEATS.filter(seat=>map[seat]);
+  const noten=SEATS.filter(seat=>!map[seat]);
+  const deltas={east:0,south:0,west:0};
+  if(tenpai.length===1){deltas[tenpai[0]]+=3000;noten.forEach(seat=>deltas[seat]-=1500);}
+  else if(tenpai.length===2){tenpai.forEach(seat=>deltas[seat]+=1500);noten.forEach(seat=>deltas[seat]-=3000);}
+  applyPointDeltas(deltas);
+  return deltas;
+}
+function deltaSummary(deltas){return SEATS.map(seat=>`${SEAT_LABELS[seat]}${deltas[seat]>=0?"+":""}${deltas[seat]}`).join(" / ");}
 
 const TurnManager={
   current(){return gameState.currentSeat;},
@@ -227,7 +250,7 @@ const GameController={
     pendingWin=null;
     canDiscard=false;
     lastDraw=null;
-    log(`v0.3.10-2：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
+    log(`v0.3.10-3：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
     render();
   },
   drawForCurrentSeat(){
@@ -281,13 +304,18 @@ const GameController={
     render();
     if(!TurnManager.isPlayer())scheduleAiDraw();
   },
-  endByRyukyoku(){
+  endByRyukyoku(tenpaiMap=null){
+    const map=tenpaiMap || currentTenpaiMap();
+    const deltas=applyRyukyokuNotenPayment(map);
     gameState.started=false;
     canDiscard=false;
+    pendingWin=null;
     this.setPhase(GamePhase.RYUKYOKU);
-    gameState.nextRound=makeNextRoundCarryAfterRyukyoku();
+    gameState.nextRound=makeNextRoundCarryAfterRyukyoku(map);
     gameState.gameEnded=true;
-    log(`流局：通常山がなくなりました。次局は${gameState.nextRound.roundWind}${gameState.nextRound.handNumber}局 ${gameState.nextRound.honba}本場（供託${gameState.nextRound.deposit}）`);
+    const dealerText=map[gameState.dealer]?"親テンパイ連荘":"親ノーテン親流れ";
+    log(`流局：${ryukyokuTenpaiText(map)} / ${dealerText} / ノーテン罰符 ${deltaSummary(deltas)}`);
+    log(`次局準備：${gameState.nextRound.roundWind}${gameState.nextRound.handNumber}局 ${gameState.nextRound.honba}本場 / 親${SEAT_LABELS[gameState.nextRound.dealer]} / 供託${gameState.nextRound.deposit} / 現在点 ${pointText()}`);
     render();
   }
 };
@@ -813,6 +841,26 @@ function setDebugKazoeBorder(){
   GameController.setPhase(GamePhase.AGARI);
   log("13/14翻確認：春はドラ表示牌に使われるため、抜き花は夏秋冬のみ。11〜13は三倍満、14以上は数え役満を確認してください");
   render();
+}
+
+function debugRyukyokuDealerTenpai(){
+  clearAiTimer();
+  if(!gameState.started){newGame();}
+  const map={east:false,south:false,west:false};
+  map[gameState.dealer]=true;
+  const next=nextSeatOf(gameState.dealer);
+  const last=nextSeatOf(next);
+  map[next]=false;map[last]=false;
+  log("親テンパイ流局確認：親だけ聴牌として流局処理します");
+  GameController.endByRyukyoku(map);
+}
+function debugRyukyokuDealerNoten(){
+  clearAiTimer();
+  if(!gameState.started){newGame();}
+  const map={east:true,south:true,west:true};
+  map[gameState.dealer]=false;
+  log("親ノーテン流局確認：親だけノーテンとして流局処理します");
+  GameController.endByRyukyoku(map);
 }
 
 gameState=createInitialGameState();bindPlayerAliases();newGame();
