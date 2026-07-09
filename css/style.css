@@ -413,3 +413,6 @@ button {
 .action-button[hidden] {
   display: none;
 }
+
+.drawn-tile-gap{display:inline-block;width:18px;}
+.drawn-tile{box-shadow:0 0 0 2px rgba(255,245,208,.28);}
