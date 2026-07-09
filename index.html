@@ -292,6 +292,13 @@ function getDoraTargets(indicators){
   return targets;
 }
 function countByIndicators(tile, indicators){let total=0;getDoraTargets(indicators).forEach(target=>{if(target===tile)total+=1;});return total;}
+function flowerIndicatorsInUse(){
+  return new Set([...doraIndicators,...uraIndicators].filter(t=>FLOWERS.has(t)));
+}
+function availableNukiFlowersForDebug(){
+  const used=flowerIndicatorsInUse();
+  return ["春","夏","秋","冬"].filter(f=>!used.has(f));
+}
 function countDoraDetailForTile(tile, uraEnabled=riichiDeclared){
   const baseFlower=FLOWERS.has(tile)?1:0; // 花牌そのものは常時1ドラ。
   const front=countByIndicators(tile,doraIndicators);
@@ -591,10 +598,10 @@ function resetDebugBase(){clearAiTimer();pendingWin=null;createWall();gameState=
 function setDebugAnkan(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("デバッグ暗槓：5p×4を配牌しました");render();}
 function setDebugKakan(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","1p","2p","3p","4s","6s","7s","東","南","白","中","9p","9s","1s"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[{type:"ポン",tile:"5p",tiles:["5p","5p","5p"]}];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=true;lastDraw="1s";sortHand();log("デバッグ加槓：5pポン済み＋手牌5pを作成しました");render();}
 function setDebugKanBlocked(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中","9p"];bindPlayerAliases();doraIndicators=["1p","2p","3p","4p","5p"];uraIndicators=["1s","2s","3s","4s","5s"];rinshanPile=["back"];wall=["6p"];riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("カン不可確認：ドラ表示牌が5枚のため、5p暗槓は押せません");render();}
-function setDebugFlowerDora(){resetDebugBase();doraIndicators=["春"];uraIndicators=["夏"];gameState.hands[PLAYER_SEAT]=["春","夏","秋","冬","1p","2p","3p","5p","5p","5p","5p","東","白"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("花ドラ確認：ドラ表示牌を春にしました。全花牌がドラ2扱いです");render();}
+function setDebugFlowerDora(){resetDebugBase();doraIndicators=["春"];uraIndicators=["夏"];gameState.hands[PLAYER_SEAT]=["夏","秋","冬","1p","2p","3p","5p","5p","5p","5p","東","白"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("花ドラ確認：ドラ表示牌が春なので、手牌側の花牌は夏秋冬のみです。全花牌がドラ対象になります");render();}
 function setDebugNukiFlower(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["春","1p","2p","3p","4p","5p","6p","7s","8s","9s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("抜き花確認：春を持った打牌前状態です。抜き花ボタンで嶺上補充を確認してください");render();}
 
-function setDebugUraDora(){resetDebugBase();doraIndicators=["1p","春"];uraIndicators=["2p","夏"];gameState.hands[PLAYER_SEAT]=["2p","3p","春","夏","秋","冬","5p","5p","5p","東","南","白","中"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=true;canDiscard=false;lastDraw=null;sortHand();log("裏ドラ確認：リーチ済み扱い。表ドラ・裏ドラ・花牌重複を表示します");render();}
+function setDebugUraDora(){resetDebugBase();doraIndicators=["1p","春"];uraIndicators=["2p","夏"];gameState.hands[PLAYER_SEAT]=["2p","3p","秋","冬","5p","5p","5p","東","南","白","中"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=true;canDiscard=false;lastDraw=null;sortHand();log("裏ドラ確認：表ドラ表示=春、裏ドラ表示=夏のため、手牌側の花牌は秋冬のみです");render();}
 
 function setDebugRiichiTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","9p"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];gameState.riichi[PLAYER_SEAT]=false;riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("リーチ確認：東単騎聴牌のツモ後状態。リーチボタンを確認してください");render();}
 
@@ -641,14 +648,15 @@ function setDebugOpenTanyaoToitoi(){
 }
 function setDebugKazoeBorder(){
   resetDebugBase();
-  gameState.flowers[PLAYER_SEAT]=["春","夏","秋","冬"];
-  gameState.hands[PLAYER_SEAT]=["2p","3p","3p","4p","4p","5p","6p","7p","8p","2s","3s","4s","東","東"];
   doraIndicators=["1p","2p","3p","4p","春"];
+  // 物理牌として春はドラ表示牌に使われているため、抜き花には出さない。
+  gameState.flowers[PLAYER_SEAT]=["夏","秋","冬"];
+  gameState.hands[PLAYER_SEAT]=["2p","3p","3p","4p","4p","5p","6p","7p","8p","2s","3s","4s","東","東"];
   uraIndicators=["1s","2s","夏"];
   gameState.riichi[PLAYER_SEAT]=true;riichiDeclared=true;
   bindPlayerAliases();sortSeatHand(PLAYER_SEAT);gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=0;canDiscard=true;lastDraw="東";pendingWin={type:"tsumo",winner:PLAYER_SEAT,from:PLAYER_SEAT,tile:"東",skippable:false};
   GameController.setPhase(GamePhase.AGARI);
-  log("13/14翻確認：手牌はリーパイ順。11〜13は三倍満、14以上は数え役満になることを確認してください");
+  log("13/14翻確認：春はドラ表示牌に使われるため、抜き花は夏秋冬のみ。11〜13は三倍満、14以上は数え役満を確認してください");
   render();
 }
 
