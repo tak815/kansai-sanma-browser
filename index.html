@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.8-2</title>
+<title>関西三麻 試作 v0.3.8-3</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -11,13 +11,13 @@ body{margin:0;background:var(--table);color:#fff;font-family:system-ui,-apple-sy
 header{height:56px;background:#111;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:2px solid rgba(255,255,255,.16)}
 header h1{font-size:22px;margin:0}.version{font-size:14px;color:#ddd}
 main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start;margin-bottom:14px}.panel{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px}.info{font-size:16px;line-height:1.8;text-align:left;min-width:300px}.info b{color:var(--gold)}
-.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}.btn{padding:10px 18px;border:0;border-radius:10px;background:#e9e9e9;color:#111;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.35)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn-primary{background:#f2ca64}.btn-danger{background:#e0776e}.btn-debug{background:#96d6ff}.btn-kan{background:#ffde72;color:#111;display:none;animation:pulse 1.2s infinite}.btn-kan.show{display:inline-block}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}.btn{padding:10px 18px;border:0;border-radius:10px;background:#e9e9e9;color:#111;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.35)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn-primary{background:#f2ca64}.btn-danger{background:#e0776e}.btn-debug{background:#96d6ff}.btn-flower{background:#f5a3ff;color:#111}.btn-kan{background:#ffde72;color:#111;display:none;animation:pulse 1.2s infinite}.btn-kan.show{display:inline-block}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .area-title{font-size:18px;margin:12px 0 8px;color:#fff}.hand,.river,.melds,.rinshan,.dora-row{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:8px}.tile{width:var(--tile-w);height:var(--tile-h);border:1px solid #333;background:#fff;color:#111;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 3px 0 rgba(0,0,0,.3);position:relative;overflow:hidden}.tile:hover{transform:translateY(-2px)}.tile img{width:100%;height:100%;object-fit:contain}.tile.small{width:38px;height:52px;font-size:13px}.tile.locked{cursor:default}.tile.selected{outline:4px solid #ffea7a}.tile.back{background:#1d3d8f;color:#fff;border-color:#bcd;cursor:default}.tile.back::before{content:"";width:22px;height:32px;border:2px solid rgba(255,255,255,.65);border-radius:3px}.tile.empty{background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.28);box-shadow:none;cursor:default}.tile.empty::after{content:"";width:20px;height:30px;border-radius:4px;background:rgba(0,0,0,.18)}.tile.flower::after{content:"花";position:absolute;right:2px;bottom:2px;background:#cc3;color:#111;border-radius:3px;font-size:10px;padding:1px 3px}.meld{display:flex;gap:3px;padding:6px 8px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(0,0,0,.22);align-items:center}.meld-label{font-size:12px;color:#ffd86a;margin-right:4px}.river{max-width:520px;margin-left:auto;margin-right:auto}.log{height:130px;overflow:auto;text-align:left;font-size:13px;background:rgba(0,0,0,.32);border-radius:10px;padding:10px}.log div{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06)}.note{font-size:13px;color:#ddd}.warning{color:#ffd86a}.layout{display:grid;grid-template-columns:1fr;gap:14px}.debug-line{font-size:13px;color:#cce;margin-top:6px}
 @media (max-width: 980px){body{min-width:0}.status{grid-template-columns:1fr}.tile{width:42px;height:56px}.controls{gap:8px}.btn{font-size:14px;padding:9px 12px}}
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.8-2 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.8-3 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -33,13 +33,16 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div>状態：<b id="stateText">開始</b></div>
       <div>手牌枚数：<b id="handCountDebug">自家13 / 南家13 / 西家13</b></div>
       <div>河枚数：<b id="riverCountDebug">自家0 / 南家0 / 西家0</b></div>
+      <div>抜き花：<b id="flowerCountDebug">自家0 / 南家0 / 西家0</b></div>
     </div>
     <div class="panel controls">
       <button class="btn btn-primary" onclick="drawTile()">ツモ / 進行</button>
+      <button id="flowerButton" class="btn btn-flower" onclick="nukiFlower()">抜き花</button>
       <button id="kanButton" class="btn btn-kan" onclick="openKanChoices()">カン</button>
       <button class="btn btn-debug" onclick="setDebugAnkan()">デバッグ暗槓</button>
       <button class="btn btn-debug" onclick="setDebugKakan()">デバッグ加槓</button>
       <button class="btn btn-debug" onclick="setDebugFlowerDora()">花ドラ確認</button>
+      <button class="btn btn-debug" onclick="setDebugNukiFlower()">抜き花確認</button>
       <button class="btn btn-debug" onclick="setDebugUraDora()">裏ドラ確認</button>
       <button class="btn" onclick="newGame()">新しい対局</button>
       <div class="debug-line">確認用：嶺上8枚（4トン）・カンドラ不可時カン禁止</div>
@@ -55,9 +58,11 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div class="area-title">嶺上牌（4トン / 合計8枚）</div>
       <div id="rinshan" class="rinshan"></div>
       <div class="note">花牌補充・カン補充はここから取得。消費済みは空き枠表示。ユーザー表示の山残りには含めません。</div>
+      <div class="area-title">抜き花（自家）</div>
+      <div id="flowers" class="melds"></div>
       <div class="area-title">副露 / カン表示</div>
       <div id="melds" class="melds"></div>
-      <div class="note">花牌は副露の真上に置く仕様へ後続で接続。今回はカン成立と表示の土台です。</div>
+      <div class="note">花牌は空気牌です。捨てることも手牌で使うこともできず、任意タイミングで抜き花します。</div>
     </div>
     <div class="panel">
       <div class="area-title">あなたの手牌</div>
@@ -74,7 +79,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div id="riverSouth" class="river"></div>
       <div class="area-title">西家の河</div>
       <div id="riverWest" class="river"></div>
-      <div class="note">v0.3.8-2確認用：自家打牌後、南家・西家が自動ツモ打牌し、山残りと河枚数が進みます。</div>
+      <div class="note">v0.3.8-3確認用：自家は任意で抜き花、AIは花牌を持つと即抜きします。抜き花補充は嶺上牌から行い、山残りは減りません。</div>
     </div>
   </section>
 </main>
@@ -98,7 +103,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.8-2",
+    version:"v0.3.8-3",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -136,7 +141,7 @@ const GameController={
     gameState.currentSeat=gameState.dealer;
     gameState.turnIndex=SEATS.indexOf(gameState.currentSeat);
     this.setPhase(GamePhase.DRAW);
-    log("Sprint 3-8-2：通常ツモループで開始しました");
+    log("Sprint 3-8-3：抜き花補充を有効にして開始しました");
     render();
   },
   drawForCurrentSeat(){
@@ -150,6 +155,10 @@ const GameController={
     canDiscard=true;
     this.setPhase(GamePhase.ACTION);
     log(`${SEAT_LABELS[seat]} ツモ：${TurnManager.isPlayer()?t:"牌"}`);
+    if(!TurnManager.isPlayer()){
+      autoNukiFlowersForSeat(seat);
+      sortSeatHand(seat);
+    }
     render();
     if(!TurnManager.isPlayer())scheduleAiDiscard();
   },
@@ -157,6 +166,10 @@ const GameController={
     if(!gameState.started||seat!==TurnManager.current()||!canDiscard)return false;
     const tiles=gameState.hands[seat];
     if(index<0||index>=tiles.length)return false;
+    if(FLOWERS.has(tiles[index])){
+      if(TurnManager.isPlayer())alert("花牌は空気牌のため捨てられません。抜き花してください。");
+      return false;
+    }
     const t=tiles.splice(index,1)[0];
     gameState.rivers[seat].push(t);
     lastDraw=null;
@@ -186,7 +199,46 @@ const GameController={
 function bindPlayerAliases(){hand=gameState.hands[PLAYER_SEAT];river=gameState.rivers[PLAYER_SEAT];melds=gameState.melds[PLAYER_SEAT];}
 function clearAiTimer(){if(aiTimerId!==null){window.clearTimeout(aiTimerId);aiTimerId=null;}}
 function scheduleAiDraw(){clearAiTimer();aiTimerId=window.setTimeout(()=>GameController.drawForCurrentSeat(),AI_THINK_MS);}
-function scheduleAiDiscard(){clearAiTimer();aiTimerId=window.setTimeout(()=>{const seat=TurnManager.current();const i=Math.floor(Math.random()*gameState.hands[seat].length);GameController.discardFromSeat(seat,i);},AI_THINK_MS);}
+function scheduleAiDiscard(){clearAiTimer();aiTimerId=window.setTimeout(()=>{const seat=TurnManager.current();autoNukiFlowersForSeat(seat);const candidates=gameState.hands[seat].map((t,i)=>({t,i})).filter(x=>!FLOWERS.has(x.t));if(!candidates.length){log(`${SEAT_LABELS[seat]}：打牌可能牌がないため流局扱い`);GameController.endByRyukyoku();return;}const picked=candidates[Math.floor(Math.random()*candidates.length)];GameController.discardFromSeat(seat,picked.i);},AI_THINK_MS);}
+
+function hasFlowerInSeat(seat){return gameState.hands[seat].some(t=>FLOWERS.has(t));}
+function takeRinshanForSeat(seat){
+  const t=rinshanPile.pop();
+  if(!t){log("嶺上牌なし：抜き花補充できません");return null;}
+  gameState.hands[seat].push(t);
+  lastDraw=t;
+  log(`${SEAT_LABELS[seat]} 嶺上補充：${TurnManager.current()===seat&&TurnManager.isPlayer()?t:"牌"}（山残り表示は減りません）`);
+  return t;
+}
+function nukiOneFlowerForSeat(seat){
+  const idx=gameState.hands[seat].findIndex(t=>FLOWERS.has(t));
+  if(idx<0)return false;
+  const flower=gameState.hands[seat].splice(idx,1)[0];
+  gameState.flowers[seat].push(flower);
+  log(`${SEAT_LABELS[seat]} 抜き花：${TurnManager.current()===seat&&TurnManager.isPlayer()?flower:"花牌"}`);
+  takeRinshanForSeat(seat);
+  sortSeatHand(seat);
+  return true;
+}
+function autoNukiFlowersForSeat(seat){
+  if(seat===PLAYER_SEAT)return;
+  let safety=0;
+  while(hasFlowerInSeat(seat)&&rinshanPile.length>0&&safety<16){
+    nukiOneFlowerForSeat(seat);
+    safety++;
+  }
+}
+function nukiFlower(){
+  if(!gameState.started||!TurnManager.isPlayer()){alert("自分の手番でのみ抜き花できます");return;}
+  if(!canDiscard){alert("現在の確認版では、ツモ後・打牌前に抜き花できます");return;}
+  if(!hasFlowerInSeat(PLAYER_SEAT)){alert("抜ける花牌がありません");return;}
+  if(!rinshanPile.length){alert("嶺上牌がありません");return;}
+  nukiOneFlowerForSeat(PLAYER_SEAT);
+  canDiscard=true;
+  GameController.setPhase(GamePhase.ACTION);
+  bindPlayerAliases();
+  render();
+}
 
 function getDoraTargets(indicators){
   const targets=[];
@@ -216,8 +268,8 @@ function deal(){dealAllPlayers();bindPlayerAliases();log("新しい対局を開�
 function newGame(){GameController.startRound();}
 
 function phaseText(){const map={INIT:"初期化",DEAL:"配牌",DRAW:"ツモ待ち",ACTION:"打牌してください",DISCARD:"打牌処理",NEXT_PLAYER:"次手番へ",RYUKYOKU:"流局"};return map[gameState.phase]||gameState.phase;}
-function render(){bindPlayerAliases();document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("stateText").textContent=`${phaseText()} / ${gameState.roundWind}${gameState.handNumber}局 / ${gameState.honba}本場 / 供託${gameState.deposit}`;const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
-  const h=document.getElementById("hand");h.innerHTML="";hand.forEach((t,i)=>h.appendChild(tileNode(t,"tile",()=>discard(i))));const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(tileNode(t,"tile small")));const rSouth=document.getElementById("riverSouth");if(rSouth){rSouth.innerHTML="";gameState.rivers.south.forEach(t=>rSouth.appendChild(tileNode(t,"tile small")));}const rWest=document.getElementById("riverWest");if(rWest){rWest.innerHTML="";gameState.rivers.west.forEach(t=>rWest.appendChild(tileNode(t,"tile small")));}const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれないためカン不可":"");}
+function render(){bindPlayerAliases();document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;document.getElementById("stateText").textContent=`${phaseText()} / ${gameState.roundWind}${gameState.handNumber}局 / ${gameState.honba}本場 / 供託${gameState.deposit}`;const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
+  const h=document.getElementById("hand");h.innerHTML="";hand.forEach((t,i)=>h.appendChild(tileNode(t,"tile",()=>discard(i))));const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(tileNode(t,"tile small")));const rSouth=document.getElementById("riverSouth");if(rSouth){rSouth.innerHTML="";gameState.rivers.south.forEach(t=>rSouth.appendChild(tileNode(t,"tile small")));}const rWest=document.getElementById("riverWest");if(rWest){rWest.innerHTML="";gameState.rivers.west.forEach(t=>rWest.appendChild(tileNode(t,"tile small")));}const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!(TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0);const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれないためカン不可":"");}
 
 function drawTile(){if(!TurnManager.isPlayer()){log("CPU手番は自動進行中です");return;}if(canDiscard){alert("先に捨ててください");return;}GameController.drawForCurrentSeat();}
 function discard(i){if(!TurnManager.isPlayer()){return;}if(!canDiscard){alert("先にツモしてください");return;}GameController.discardFromSeat(PLAYER_SEAT,i);}
@@ -232,6 +284,8 @@ function resetDebugBase(){clearAiTimer();createWall();gameState=createInitialGam
 function setDebugAnkan(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("デバッグ暗槓：5p×4を配牌しました");render();}
 function setDebugKakan(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","1p","2p","3p","4s","6s","7s","東","南","白","中","9p","9s","1s"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[{type:"ポン",tile:"5p",tiles:["5p","5p","5p"]}];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=true;lastDraw="1s";sortHand();log("デバッグ加槓：5pポン済み＋手牌5pを作成しました");render();}
 function setDebugFlowerDora(){resetDebugBase();doraIndicators=["春"];uraIndicators=["夏"];gameState.hands[PLAYER_SEAT]=["春","夏","秋","冬","1p","2p","3p","5p","5p","5p","5p","東","白"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("花ドラ確認：ドラ表示牌を春にしました。全花牌がドラ2扱いです");render();}
+function setDebugNukiFlower(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["春","1p","2p","3p","4p","5p","6p","7s","8s","9s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("抜き花確認：春を持った打牌前状態です。抜き花ボタンで嶺上補充を確認してください");render();}
+
 function setDebugUraDora(){resetDebugBase();doraIndicators=["1p","春"];uraIndicators=["2p","夏"];gameState.hands[PLAYER_SEAT]=["2p","3p","春","夏","秋","冬","5p","5p","5p","東","南","白","中"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=true;canDiscard=false;lastDraw=null;sortHand();log("裏ドラ確認：リーチ済み扱い。表ドラ・裏ドラ・花牌重複を表示します");render();}
 
 gameState=createInitialGameState();bindPlayerAliases();newGame();
