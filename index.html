@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.9-4</title>
+<title>関西三麻 試作 v0.3.9-5</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -17,7 +17,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.9-4 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.9-5 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -35,6 +35,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div>役：<b id="yakuLabel">-</b></div>
       <div>翻数：<b id="hanLabel">-</b></div>
       <div>点数区分：<b id="limitLabel">-</b></div>
+      <div>仮得点：<b id="scoreLabel">-</b></div>
       <div>状態：<b id="stateText">開始</b></div>
       <div>手牌枚数：<b id="handCountDebug">自家13 / 南家13 / 西家13</b></div>
       <div>河枚数：<b id="riverCountDebug">自家0 / 南家0 / 西家0</b></div>
@@ -105,7 +106,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div id="riverSouth" class="river"></div>
       <div class="area-title">西家の河</div>
       <div id="riverWest" class="river"></div>
-      <div class="note">v0.3.9-4確認用：役判定、食いタン制限、8翻倍満、14翻数え役満を確認できます。</div>
+      <div class="note">v0.3.9-5確認用：役判定、点数区分、8翻倍満、14翻数え役満、仮得点を確認できます。</div>
     </div>
   </section>
 </main>
@@ -308,6 +309,31 @@ function limitNameByHan(han){
   if(han>=5)return "満貫";
   return han>0?`${han}翻`:"役なし";
 }
+
+function roundUp100(n){return Math.ceil(n/100)*100;}
+function limitBasePointByHan(han){
+  if(han>=14)return 8000; // 数え役満
+  if(han>=11)return 6000; // 三倍満（13翻ちょうどもここ）
+  if(han>=8)return 4000;  // 倍満（8翻は倍満）
+  if(han>=6)return 3000;  // 跳満
+  if(han>=5)return 2000;  // 満貫
+  return 0;
+}
+function scoreInfoByHan(han, seat=PLAYER_SEAT, win=null){
+  const dealer=seat==="east";
+  const base=limitBasePointByHan(han);
+  const limit=limitNameByHan(han);
+  if(!base)return {dealer,limit,base:0,ron:0,tsumoText:"点数計算対象外",summary:"満貫未満は後続Sprintで符計算"};
+  const ron=roundUp100(base*(dealer?6:4));
+  let tsumoText;
+  if(dealer){
+    tsumoText=`親ツモ ${roundUp100(base*2)}オール目安`;
+  }else{
+    tsumoText=`子ツモ 親${roundUp100(base*2)} / 子${roundUp100(base)}目安`;
+  }
+  const ronText=`ロン ${ron}点`;
+  return {dealer,limit,base,ron,tsumoText,summary:`${limit} / ${ronText} / ${tsumoText}`};
+}
 function allSeatTilesForYaku(seat, extraTile=null){
   const tiles=handMaterialTiles(seat).slice();
   if(extraTile&&!FLOWERS.has(extraTile))tiles.push(extraTile);
@@ -367,7 +393,8 @@ function evaluateYaku(seat=PLAYER_SEAT, win=null){
   }
   const dora=countDoraForSeat(seat,extraTile);
   const totalHan=baseHan+dora.total;
-  return {yaku,baseHan,dora,totalHan,limit:limitNameByHan(totalHan),open,tanyaoSuppressed,canWinByYaku:baseHan>0};
+  const score=scoreInfoByHan(totalHan,seat,win);
+  return {yaku,baseHan,dora,totalHan,limit:limitNameByHan(totalHan),score,open,tanyaoSuppressed,canWinByYaku:baseHan>0};
 }
 function yakuSummaryText(info){
   const parts=info.yaku.map(y=>`${y.name}${y.han}`);
@@ -377,12 +404,13 @@ function yakuSummaryText(info){
   return parts.join(" / ")||"役なし";
 }
 function updateYakuDebug(win=null){
-  const yl=document.getElementById("yakuLabel"), hl=document.getElementById("hanLabel"), ll=document.getElementById("limitLabel");
+  const yl=document.getElementById("yakuLabel"), hl=document.getElementById("hanLabel"), ll=document.getElementById("limitLabel"), sl=document.getElementById("scoreLabel");
   if(!yl||!hl||!ll)return;
   const info=evaluateYaku(PLAYER_SEAT,win);
   yl.textContent=yakuSummaryText(info);
   hl.textContent=`${info.totalHan}翻（役${info.baseHan}＋ドラ${info.dora.total}）`;
   ll.textContent=info.limit;
+  if(sl)sl.textContent=info.score?info.score.summary:"-";
 }
 
 
@@ -479,7 +507,7 @@ function finishAgari(label){
   canDiscard=false;
   GameController.setPhase(GamePhase.AGARI);
   const kind=win.type==="ron"?`ロン ${win.tile}`:`ツモ ${win.tile||""}`;
-  log(`${label}：${kind}で局終了 / ${yakuSummaryText(info)} / 合計${info.totalHan}翻 / ${info.limit}`);
+  log(`${label}：${kind}で局終了 / ${yakuSummaryText(info)} / 合計${info.totalHan}翻 / ${info.limit} / ${info.score.summary}`);
   pendingWin=null;
   render();
 }
