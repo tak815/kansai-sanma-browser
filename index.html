@@ -935,22 +935,31 @@ function setDebugUraDora(){resetDebugBase();doraIndicators=["1p","春"];uraIndic
 function setDebugRiichiTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","9p"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];gameState.riichi[PLAYER_SEAT]=false;riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("リーチ確認：東単騎聴牌のツモ後状態。リーチボタンを確認してください");render();}
 
 function setDebugCpuRiichiTenpai(){
-  resetDebugBase();
-  // TurnManager が参照する正式な手番フィールドを南家へ切り替える。
-  gameState.currentSeat="south";
-  gameState.turnIndex=SEATS.indexOf("south");
-  gameState.phase=GamePhase.ACTION;
-  gameState.nextRound=false;
-  gameState.matchResult=null;
+  // 空のデバッグ局ではなく、通常局を作って全員へ13枚ずつ配牌する。
+  GameController.startRound();
+  clearAiTimer();
+
+  // 南家だけを「9p切りで東単騎聴牌」になる14枚形へ差し替える。
   gameState.hands.south=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","9p"];
   gameState.rivers.south=[];
   gameState.melds.south=[];
   gameState.flowers.south=[];
   gameState.riichi.south=false;
+
+  // TurnManager が参照する正式な手番を南家へ変更する。
+  gameState.currentSeat="south";
+  gameState.turnIndex=SEATS.indexOf("south");
+  gameState.phase=GamePhase.ACTION;
+  gameState.nextRound=false;
+  gameState.matchResult=null;
+  pendingWin=null;
   lastDraw="9p";
-  canDiscard=false;
+  canDiscard=true;
+  debugAiPaused=false;
+  sortSeatHand("south");
+
   cpuDecisionText="南家：即リーチ確認を開始";
-  log("CPU即リーチ確認：南家は9pを切ると東単騎聴牌です");
+  log("CPU即リーチ確認：通常配牌を維持し、南家のみリーチ確認手牌へ変更しました");
   render();
   scheduleAiDiscard();
 }
