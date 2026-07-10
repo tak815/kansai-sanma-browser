@@ -936,13 +936,23 @@ function setDebugRiichiTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["
 
 function setDebugCpuRiichiTenpai(){
   resetDebugBase();
-  gameState.currentPlayer="south";
+  // TurnManager が参照する正式な手番フィールドを南家へ切り替える。
+  gameState.currentSeat="south";
+  gameState.turnIndex=SEATS.indexOf("south");
   gameState.phase=GamePhase.ACTION;
+  gameState.nextRound=false;
+  gameState.matchResult=null;
   gameState.hands.south=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","9p"];
-  gameState.melds.south=[];gameState.flowers.south=[];gameState.riichi.south=false;
-  lastDraw="9p";canDiscard=false;cpuDecisionText="南家：即リーチ確認を開始";
+  gameState.rivers.south=[];
+  gameState.melds.south=[];
+  gameState.flowers.south=[];
+  gameState.riichi.south=false;
+  lastDraw="9p";
+  canDiscard=false;
+  cpuDecisionText="南家：即リーチ確認を開始";
   log("CPU即リーチ確認：南家は9pを切ると東単騎聴牌です");
-  render();scheduleAiDiscard();
+  render();
+  scheduleAiDiscard();
 }
 function setDebugTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("聴牌確認：東単騎待ちの13枚形を作成しました");render();}
 function setDebugIishanten(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","2s","3s","4s","東","白"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("一向聴確認：通常形の一向聴サンプルを作成しました");render();}
