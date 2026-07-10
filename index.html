@@ -146,7 +146,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.10-6",
+    version:"v0.3.11-1",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -309,7 +309,7 @@ const GameController={
     pendingWin=null;
     canDiscard=false;
     lastDraw=null;
-    log(`v0.3.10-4：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
+    log(`v0.3.11-1：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
     render();
   },
   drawForCurrentSeat(){
@@ -384,7 +384,73 @@ const GameController={
 function bindPlayerAliases(){hand=gameState.hands[PLAYER_SEAT];river=gameState.rivers[PLAYER_SEAT];melds=gameState.melds[PLAYER_SEAT];}
 function clearAiTimer(){if(aiTimerId!==null){window.clearTimeout(aiTimerId);aiTimerId=null;}}
 function scheduleAiDraw(){clearAiTimer();if(pendingWin)return;if(debugAiPaused){log("AI停止中：CPUツモを保留しています");render();return;}aiTimerId=window.setTimeout(()=>GameController.drawForCurrentSeat(),AI_THINK_MS);}
-function scheduleAiDiscard(){clearAiTimer();if(pendingWin)return;if(debugAiPaused){log("AI停止中：CPU打牌を保留しています");render();return;}aiTimerId=window.setTimeout(()=>{const seat=TurnManager.current();autoNukiFlowersForSeat(seat);const candidates=gameState.hands[seat].map((t,i)=>({t,i})).filter(x=>!FLOWERS.has(x.t));if(!candidates.length){log(`${SEAT_LABELS[seat]}：打牌可能牌がないため流局扱い`);GameController.endByRyukyoku();return;}const picked=candidates[Math.floor(Math.random()*candidates.length)];GameController.discardFromSeat(seat,picked.i);},AI_THINK_MS);}
+
+function aiTileDoraValue(tile){
+  let value=0;
+  doraIndicators.forEach(ind=>{
+    if(FLOWERS.has(ind)){if(FLOWERS.has(tile))value+=1;}
+    else if(DORA_NEXT[ind]===tile)value+=1;
+  });
+  return value;
+}
+function aiTileShapeValue(hand,tile){
+  if(FLOWERS.has(tile))return -100;
+  let value=0;
+  const same=hand.filter(t=>t===tile).length;
+  if(same>=2)value+=2.2;
+  if(same>=3)value+=1.2;
+  const m=tile.match(/^([1-9])([ps])$/);
+  if(m){
+    const n=Number(m[1]), suit=m[2];
+    const has=x=>hand.includes(`${x}${suit}`);
+    if(has(n-1))value+=1.1;if(has(n+1))value+=1.1;
+    if(has(n-2))value+=0.55;if(has(n+2))value+=0.55;
+    if(n>=3&&n<=7)value+=0.25;
+    if(n===1||n===9)value-=0.2;
+  }else{
+    // 字牌は対子・刻子でなければ比較的切りやすい。
+    if(same===1)value-=0.7;
+  }
+  return value;
+}
+function aiImprovementCount(seat,baseShanten){
+  const handRef=gameState.hands[seat];
+  let count=0;
+  SHANTEN_TILES.forEach(tile=>{
+    const owned=handRef.filter(t=>t===tile).length;
+    if(owned>=4)return;
+    handRef.push(tile);
+    const next=calcShantenInfo(seat).shanten;
+    handRef.pop();
+    if(next<baseShanten)count+=(4-owned);
+  });
+  return count;
+}
+function aiChooseDiscardIndex(seat){
+  const tiles=gameState.hands[seat];
+  if(gameState.riichi[seat]&&lastDraw){
+    const drawnIndex=tiles.lastIndexOf(lastDraw);
+    if(drawnIndex>=0&&!FLOWERS.has(tiles[drawnIndex]))return {index:drawnIndex,reason:"リーチ後ツモ切り"};
+  }
+  const results=[];
+  tiles.forEach((tile,index)=>{
+    if(FLOWERS.has(tile))return;
+    const removed=tiles.splice(index,1)[0];
+    const info=calcShantenInfo(seat);
+    const improvement=aiImprovementCount(seat,info.shanten);
+    tiles.splice(index,0,removed);
+    const dora=aiTileDoraValue(tile);
+    const shape=aiTileShapeValue(tiles,tile);
+    // 向聴数を最優先し、同向聴なら受け入れ枚数、ドラ・形の価値を比較する。
+    const score=(-info.shanten*1000)+(improvement*8)-(dora*110)-shape;
+    results.push({index,tile,shanten:info.shanten,improvement,dora,shape,score});
+  });
+  results.sort((a,b)=>b.score-a.score||a.index-b.index);
+  const best=results[0];
+  if(!best)return null;
+  return {index:best.index,reason:`${shantenText(best.shanten)}・受入${best.improvement}${best.dora?`・ドラ${best.dora}保持比較`:""}`,detail:best};
+}
+function scheduleAiDiscard(){clearAiTimer();if(pendingWin)return;if(debugAiPaused){log("AI停止中：CPU打牌を保留しています");render();return;}aiTimerId=window.setTimeout(()=>{const seat=TurnManager.current();autoNukiFlowersForSeat(seat);const candidates=gameState.hands[seat].filter(t=>!FLOWERS.has(t));if(!candidates.length){log(`${SEAT_LABELS[seat]}：打牌可能牌がないため流局扱い`);GameController.endByRyukyoku();return;}const picked=aiChooseDiscardIndex(seat);if(!picked){GameController.endByRyukyoku();return;}log(`${SEAT_LABELS[seat]} CPU判断：${picked.reason}`);GameController.discardFromSeat(seat,picked.index);},AI_THINK_MS);}
 
 function hasFlowerInSeat(seat){return gameState.hands[seat].some(t=>FLOWERS.has(t));}
 function takeRinshanForSeat(seat){
