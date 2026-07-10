@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.13-3</title>
+<title>関西三麻 試作 v0.3.13-5</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -36,10 +36,12 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 .result-table tr:first-child td{font-weight:800;background:rgba(255,225,128,.08)}
 .score-breakdown{font-size:12px;line-height:1.55;text-align:left;display:inline-block}
 .result-score-note{font-size:12px;color:#ccd6cf;margin-top:10px}
+
+.stats-modal{position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center;padding:24px}.stats-modal[hidden]{display:none}.stats-card{width:min(1000px,96vw);max-height:88vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.55);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.55);text-align:left}.stats-head{display:flex;justify-content:space-between;align-items:center;gap:16px}.stats-head h2{margin:0;color:#ffe49a}.stats-summary{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;margin:16px 0}.stats-box{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px}.stats-box b{display:block;color:#ffe49a;font-size:20px}.stats-table{width:100%;border-collapse:collapse;margin-top:8px}.stats-table th,.stats-table td{border:1px solid rgba(255,255,255,.12);padding:8px}.stats-table th{background:rgba(216,179,90,.14);color:#ffe49a}.stats-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.stats-empty{color:#ccd6cf;padding:12px 0}.stats-section{margin-top:18px}.stats-section h3{margin:0 0 8px;color:#ffe49a}@media(max-width:720px){.stats-summary{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.13-3 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.13-5 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -164,7 +166,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
         <div>レート：<b id="profileRatingLabel">1500</b></div>
         <div>総対局数：<b id="profileMatchesLabel">0</b></div>
       </div>
-      <div class="note">統計データはバージョン管理された拡張形式で保存します。将来、役別和了回数・平均打点・局別傾向などをプレミアム統計へ追加できます。</div>
+      <div class="note">統計データはバージョン管理された拡張形式で保存します。将来、役別和了回数・平均打点・局別傾向などをプレミアム統計へ追加できます。</div><div style="margin-top:10px"><button class="btn btn-debug" onclick="openStatsModal()">統計を確認</button></div>
     </div>
 
     <div class="panel match-result-panel" id="matchResultPanel" hidden>
@@ -180,6 +182,17 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
     </div>
   </section>
 </main>
+
+<div id="statsModal" class="stats-modal" hidden>
+  <div class="stats-card" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+    <div class="stats-head"><h2 id="statsTitle">統計情報（開発確認）</h2><button class="btn" onclick="closeStatsModal()">閉じる</button></div>
+    <div id="statsSummary" class="stats-summary"></div>
+    <div class="stats-section"><h3>役別和了統計</h3><div id="yakuStatsBody"></div></div>
+    <div class="stats-section"><h3>直近の対局</h3><div id="recentMatchStatsBody"></div></div>
+    <div class="stats-actions"><button class="btn btn-debug" onclick="exportStatsJson()">統計JSONを書き出す</button><button class="btn btn-debug-warn" onclick="resetStatsForDebug()">統計を初期化</button></div>
+    <div class="note">この画面は開発確認用です。プレミアム機能では表示項目・期間・役別分析を拡張できる構造にしています。</div>
+  </div>
+</div>
 <div id="callOverlay" class="call-overlay" aria-live="polite" aria-atomic="true"><div id="callText" class="call-text"></div></div>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
@@ -372,9 +385,33 @@ function persistCompletedMatch(){
   renderProfile();
 }
 
+
+function formatPercent(n,d){return d>0?`${(n/d*100).toFixed(1)}%`:'0.0%';}
+function openStatsModal(){renderDetailedStats();document.getElementById('statsModal').hidden=false;}
+function closeStatsModal(){document.getElementById('statsModal').hidden=true;}
+function renderDetailedStats(){
+  const t=profileStats.totals||{},a=profileStats.aggregates||{};
+  const avgRank=t.matches?((a.rankTotal||0)/t.matches).toFixed(2):'-';
+  const avgPoints=t.matches?Math.round((a.finalPointsTotal||0)/t.matches).toLocaleString():'-';
+  const boxes=[['総対局数',t.matches||0],['平均順位',avgRank],['上がり率',formatPercent(t.wins||0,t.hands||0)],['放銃率',formatPercent(t.dealIns||0,t.hands||0)],['平均最終点',avgPoints],['飛ばし賞',t.bustAwards||0],['飛ばされた回数',t.busted||0],['保存形式',`v${profileStats.schemaVersion||1}`]];
+  document.getElementById('statsSummary').innerHTML=boxes.map(([k,v])=>`<div class="stats-box"><span>${k}</span><b>${v}</b></div>`).join('');
+  const y=profileStats.yaku?.winsByName||{},h=profileStats.yaku?.hanByName||{};
+  const rows=Object.keys(y).sort((x,z)=>(y[z]||0)-(y[x]||0)||x.localeCompare(z,'ja')).map(name=>`<tr><td>${escapeHtml(name)}</td><td>${y[name]||0}</td><td>${h[name]||0}</td></tr>`).join('');
+  document.getElementById('yakuStatsBody').innerHTML=rows?`<table class="stats-table"><thead><tr><th>役</th><th>和了回数</th><th>累計翻数</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="stats-empty">まだ役別和了データはありません。</div>';
+  const mh=(profileStats.matchHistory||[]).slice(-10).reverse();
+  const mr=mh.map(m=>`<tr><td>${new Date(m.playedAt).toLocaleString('ja-JP')}</td><td>${m.rank}位</td><td>${Number(m.finalPoints||0).toLocaleString()}</td><td>${m.wins||0}</td><td>${m.dealIns||0}</td></tr>`).join('');
+  document.getElementById('recentMatchStatsBody').innerHTML=mr?`<table class="stats-table"><thead><tr><th>日時</th><th>順位</th><th>最終点</th><th>和了</th><th>放銃</th></tr></thead><tbody>${mr}</tbody></table>`:'<div class="stats-empty">まだ対局履歴はありません。</div>';
+}
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function exportStatsJson(){
+  const blob=new Blob([JSON.stringify(profileStats,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ksb-stats-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function resetStatsForDebug(){if(!confirm('保存済みの統計を初期化しますか？'))return;profileStats=createProfileStats();saveProfileStats();renderProfile();renderDetailedStats();log('統計情報を初期化しました');}
+
 function createInitialGameState(){
   return {
-    version:"v0.3.13-4",
+    version:"v0.3.13-5",
     roundWind:"東",
     handNumber:1,
     returnEast:false,
