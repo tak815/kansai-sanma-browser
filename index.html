@@ -17,7 +17,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.10-6 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.11-4 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -70,6 +70,8 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button class="btn btn-debug" onclick="setDebugRiichiTenpai()">リーチ確認</button>
       <button class="btn btn-debug" onclick="setDebugCpuRiichiTenpai()">CPU即リーチ確認</button>
       <button class="btn btn-debug" onclick="setDebugCpuPonChance()">CPUポン確認</button>
+      <button class="btn btn-debug" onclick="setDebugCpuFoldChance()">CPUベタオリ確認</button>
+      <button class="btn btn-debug" onclick="setDebugCpuPushChance()">CPU押し確認</button>
       <button class="btn btn-debug" onclick="setDebugRonChance()">ロン確認</button>
       <button class="btn btn-debug" onclick="setDebugTsumoAgari()">ツモ和了確認</button>
       <button class="btn btn-debug" onclick="setDebugOpenTanyaoOnly()">食いタンのみ確認</button>
@@ -149,7 +151,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.11-3",
+    version:"v0.3.11-4",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -430,12 +432,61 @@ function aiImprovementCount(seat,baseShanten){
   });
   return count;
 }
+function riichiOpponents(seat){return SEATS.filter(s=>s!==seat&&gameState.riichi[s]);}
+function riverValues(seat){return (gameState.rivers[seat]||[]).map(tileValue);}
+function isSuited(tile){return /^[1-9][ps]$/.test(tile);}
+function tileNumber(tile){return isSuited(tile)?Number(tile[0]):null;}
+function tileSuit(tile){return isSuited(tile)?tile[1]:null;}
+function isGenbutsu(tile,opponent){return riverValues(opponent).includes(tile);}
+function isSujiSafe(tile,opponent){
+  if(!isSuited(tile))return false;
+  const n=tileNumber(tile),suit=tileSuit(tile),r=new Set(riverValues(opponent));
+  const pairs=[];
+  if(n<=3)pairs.push(n+3);
+  if(n>=7)pairs.push(n-3);
+  if(n>=4&&n<=6){pairs.push(n-3,n+3);}
+  return pairs.some(x=>r.has(String(x)+suit));
+}
+function visibleTileCount(tile){
+  let n=0;
+  SEATS.forEach(s=>{n+=riverValues(s).filter(t=>t===tile).length;n+=(gameState.melds[s]||[]).flatMap(m=>m.tiles||[]).filter(t=>t===tile).length;n+=(gameState.flowers[s]||[]).filter(t=>t===tile).length;});
+  n+=doraIndicators.filter(t=>t===tile).length;
+  return n;
+}
+function aiSafetyScore(tile,seat){
+  const opponents=riichiOpponents(seat);
+  if(!opponents.length)return {score:0,label:""};
+  let total=0;let labels=[];
+  opponents.forEach(op=>{
+    if(isGenbutsu(tile,op)){total+=1000;labels.push(`${SEAT_LABELS[op]}現物`);return;}
+    if(isHonor(tile)){
+      const seen=visibleTileCount(tile);
+      total+=seen>=3?650:seen===2?380:seen===1?170:40;
+      labels.push(seen>=2?`字牌${seen}枚見え`:"字牌");
+      return;
+    }
+    if(isSujiSafe(tile,op)){total+=230;labels.push(`${SEAT_LABELS[op]}筋`);}
+    const seen=visibleTileCount(tile);
+    if(seen>=3){total+=180;labels.push("ワンチャンス相当");}
+  });
+  return {score:total,label:[...new Set(labels)].join("・")};
+}
+function aiAttackValue(seat){
+  const info=calcShantenInfo(seat);
+  const dora=summarizeDoraTiles(doraTilesForSeat(seat),!!gameState.riichi[seat]).summary.total;
+  const isDealer=seat===gameState.dealer;
+  let value=(info.shanten===0?850:info.shanten===1?340:0)+(dora*150)+(isDealer?120:0);
+  return {value,shanten:info.shanten,dora,isDealer};
+}
 function aiChooseDiscardIndex(seat){
   const tiles=gameState.hands[seat];
   if(gameState.riichi[seat]&&lastDraw){
     const drawnIndex=tiles.lastIndexOf(lastDraw);
     if(drawnIndex>=0&&!FLOWERS.has(tiles[drawnIndex]))return {index:drawnIndex,reason:"リーチ後ツモ切り"};
   }
+  const opponents=riichiOpponents(seat);
+  const attack=aiAttackValue(seat);
+  const shouldFold=opponents.length>0 && attack.shanten>=2 && attack.dora<=1 && !attack.isDealer;
   const results=[];
   tiles.forEach((tile,index)=>{
     if(FLOWERS.has(tile))return;
@@ -445,14 +496,17 @@ function aiChooseDiscardIndex(seat){
     tiles.splice(index,0,removed);
     const dora=aiTileDoraValue(tile);
     const shape=aiTileShapeValue(tiles,tile);
-    // 向聴数を最優先し、同向聴なら受け入れ枚数、ドラ・形の価値を比較する。
-    const score=(-info.shanten*1000)+(improvement*8)-(dora*110)-shape;
-    results.push({index,tile,shanten:info.shanten,improvement,dora,shape,score});
+    const safety=aiSafetyScore(tile,seat);
+    const attackScore=(-info.shanten*1000)+(improvement*8)-(dora*110)-shape;
+    const score=shouldFold?(safety.score*10)+(attackScore*0.15):attackScore+(safety.score*(opponents.length?0.5:0));
+    results.push({index,tile,shanten:info.shanten,improvement,dora,shape,safety,score});
   });
   results.sort((a,b)=>b.score-a.score||a.index-b.index);
   const best=results[0];
   if(!best)return null;
-  return {index:best.index,reason:`${shantenText(best.shanten)}・受入${best.improvement}${best.dora?`・ドラ${best.dora}保持比較`:""}`,detail:best};
+  const mode=shouldFold?"ベタオリ":opponents.length?"押し":"通常";
+  const safeText=best.safety.label?`・${best.safety.label}`:"";
+  return {index:best.index,reason:`${mode} / ${shantenText(best.shanten)}・受入${best.improvement}${safeText}${best.dora?`・ドラ${best.dora}保持比較`:""}`,detail:best};
 }
 function canCpuDeclareRiichi(seat,picked){
   return !!picked && picked.detail && picked.detail.shanten===0
@@ -1026,6 +1080,26 @@ function setDebugTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3
 function setDebugIishanten(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","2s","3s","4s","東","白"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("一向聴確認：通常形の一向聴サンプルを作成しました");render();}
 
 
+
+function setDebugCpuFoldChance(){
+  newGame();clearAiTimer();pendingWin=null;debugAiPaused=true;
+  gameState.riichi.south=true;gameState.points.south-=1000;gameState.deposit+=1;
+  gameState.rivers.south=[{tile:"3p",riichi:true},{tile:"6s",riichi:false}];
+  gameState.hands.west=["3p","1p","4p","7p","2s","5s","8s","東","白","中","9m","1m","北","9s"];
+  sortSeatHand("west");gameState.currentSeat="west";gameState.turnIndex=2;gameState.phase=GamePhase.ACTION;lastDraw="9s";canDiscard=true;
+  debugAiPaused=false;cpuDecisionText="CPUベタオリ確認：西家が南家リーチへ現物3pを優先";
+  log("CPUベタオリ確認：南家リーチ中。西家は2向聴以上・低打点のため現物3pを優先します");render();scheduleAiDiscard();
+}
+function setDebugCpuPushChance(){
+  newGame();clearAiTimer();pendingWin=null;debugAiPaused=true;
+  gameState.riichi.south=true;gameState.points.south-=1000;gameState.deposit+=1;
+  gameState.rivers.south=[{tile:"1p",riichi:true},{tile:"9s",riichi:false}];
+  doraIndicators=["4p"];
+  gameState.hands.west=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東","9p"];
+  sortSeatHand("west");gameState.currentSeat="west";gameState.turnIndex=2;gameState.phase=GamePhase.ACTION;lastDraw="9p";canDiscard=true;
+  debugAiPaused=false;cpuDecisionText="CPU押し確認：西家が聴牌・ドラありで押す";
+  log("CPU押し確認：南家リーチ中でも、西家は聴牌・ドラありのため向聴維持を優先します");render();scheduleAiDiscard();
+}
 function setDebugCpuPonChance(){
   clearAiTimer();pendingWin=null;debugAiPaused=false;
   createWall();gameState=createInitialGameState();gameState.started=true;gameState.phase=GamePhase.ACTION;
