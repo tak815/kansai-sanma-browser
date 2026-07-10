@@ -127,7 +127,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div id="riverSouth" class="river"></div>
       <div class="area-title">西家の河</div>
       <div id="riverWest" class="river"></div>
-      <div class="note">v0.3.10-6確認用：対局終了後の順位・終了理由表示と、初期点35000点からの再対局を確認できます。</div>
+      <div class="note">v0.3.12-1確認用：東1〜3局→南1〜3局→条件未達なら返り東。返り東は誰かが40000点を超えた局終了時に対局終了します。</div>
     </div>
   </section>
 </main>
@@ -153,9 +153,10 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.11-5",
+    version:"v0.3.12-1",
     roundWind:"東",
     handNumber:1,
+    returnEast:false,
     honba:0,
     deposit:0,
     dealer:"east",
@@ -184,6 +185,7 @@ function carryIntoNewGameState(carry){
   if(!carry)return next;
   next.roundWind=carry.roundWind || next.roundWind;
   next.handNumber=carry.handNumber || next.handNumber;
+  next.returnEast=!!carry.returnEast;
   next.honba=carry.honba || 0;
   next.deposit=carry.deposit || 0;
   next.dealer=carry.dealer || next.dealer;
@@ -194,18 +196,34 @@ function carryIntoNewGameState(carry){
 }
 
 function nextSeatOf(seat){return SEATS[(SEATS.indexOf(seat)+1)%SEATS.length] || "east";}
-function advanceRoundPosition(roundWind, handNumber){
+function advanceRoundPosition(roundWind, handNumber, returnEast=false){
   let h=handNumber+1;
   let w=roundWind;
+  let returning=!!returnEast;
   if(h>3){
     h=1;
-    w=roundWind==="東"?"南":"東";
+    if(returning){
+      w="東"; // 返り東は誰かが40000点を超えるまで東1〜3局を循環
+    }else if(roundWind==="東"){
+      w="南"; // 東3局終了後は南1局
+    }else{
+      w="東";
+      returning=true; // 南3局終了時に40000点超えがいなければ返り東
+    }
   }
-  return {roundWind:w,handNumber:h};
+  return {roundWind:w,handNumber:h,returnEast:returning};
 }
 
-function isAllLast(){return gameState.roundWind===FINAL_ROUND_WIND&&gameState.handNumber===FINAL_HAND_NUMBER;}
-function shouldEndMatch(dealerContinues){return isAllLast()&&!dealerContinues;}
+function isSouthAllLast(){return !gameState.returnEast&&gameState.roundWind===FINAL_ROUND_WIND&&gameState.handNumber===FINAL_HAND_NUMBER;}
+function hasPlayerOverReturnPoint(){return SEATS.some(seat=>gameState.points[seat]>40000);}
+function roundLabelText(state=gameState){return `${state.returnEast?"返り東":""}${state.roundWind}${state.handNumber}局`;}
+function shouldEndMatchAfterHand(dealerContinues){
+  // 返り東は、局終了時点で誰かが40000点を超えたら終了。
+  if(gameState.returnEast&&hasPlayerOverReturnPoint())return true;
+  // 南3局は、親が流れた時点で40000点超えがいれば終了。いなければ返り東へ。
+  if(isSouthAllLast()&&!dealerContinues&&hasPlayerOverReturnPoint())return true;
+  return false;
+}
 function makeMatchResult(reason){
   const ranked=SEATS.slice().sort((a,b)=>{
     const diff=gameState.points[b]-gameState.points[a];
@@ -246,10 +264,12 @@ function finishMatch(reason){
 
 function makeNextRoundCarryAfterAgari(win){
   const dealerWon=win.winner===gameState.dealer;
-  if(shouldEndMatch(dealerWon))return null;
-  const pos=dealerWon?{roundWind:gameState.roundWind,handNumber:gameState.handNumber}:advanceRoundPosition(gameState.roundWind,gameState.handNumber);
+  if(shouldEndMatchAfterHand(dealerWon))return null;
+  const pos=dealerWon
+    ? {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:gameState.returnEast}
+    : advanceRoundPosition(gameState.roundWind,gameState.handNumber,gameState.returnEast);
   return {
-    roundWind:pos.roundWind, handNumber:pos.handNumber,
+    roundWind:pos.roundWind, handNumber:pos.handNumber, returnEast:!!pos.returnEast,
     honba:dealerWon?(gameState.honba+1):0, deposit:0,
     dealer:dealerWon?gameState.dealer:nextSeatOf(gameState.dealer),
     points:Object.assign({},gameState.points)
@@ -257,10 +277,12 @@ function makeNextRoundCarryAfterAgari(win){
 }
 function makeNextRoundCarryAfterRyukyoku(tenpaiMap=null){
   const dealerTenpai=tenpaiMap ? !!tenpaiMap[gameState.dealer] : true;
-  if(shouldEndMatch(dealerTenpai))return null;
-  const pos=dealerTenpai?{roundWind:gameState.roundWind,handNumber:gameState.handNumber}:advanceRoundPosition(gameState.roundWind,gameState.handNumber);
+  if(shouldEndMatchAfterHand(dealerTenpai))return null;
+  const pos=dealerTenpai
+    ? {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:gameState.returnEast}
+    : advanceRoundPosition(gameState.roundWind,gameState.handNumber,gameState.returnEast);
   return {
-    roundWind:pos.roundWind, handNumber:pos.handNumber,
+    roundWind:pos.roundWind, handNumber:pos.handNumber, returnEast:!!pos.returnEast,
     honba:(gameState.honba||0)+1, deposit:gameState.deposit||0,
     dealer:dealerTenpai?gameState.dealer:nextSeatOf(gameState.dealer),
     points:Object.assign({},gameState.points), ryukyokuDealerTenpai:dealerTenpai
@@ -316,7 +338,7 @@ const GameController={
     pendingWin=null;
     canDiscard=false;
     lastDraw=null;
-    log(`v0.3.11-5：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
+    log(`v0.3.12-1：${roundLabelText()} ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
     render();
   },
   drawForCurrentSeat(){
@@ -384,8 +406,8 @@ const GameController={
     const dealerText=map[gameState.dealer]?"親テンパイ連荘":"親ノーテン親流れ";
     log(`流局：${ryukyokuTenpaiText(map)} / ${dealerText} / ノーテン罰符 ${deltaSummary(deltas)}`);
     if(gameState.nextRound){
-      log(`次局準備：${gameState.nextRound.roundWind}${gameState.nextRound.handNumber}局 ${gameState.nextRound.honba}本場 / 親${SEAT_LABELS[gameState.nextRound.dealer]} / 供託${gameState.nextRound.deposit} / 現在点 ${pointText()}`);
-    }else{finishMatch("南3局で親ノーテン流局");}
+      log(`次局準備：${roundLabelText(gameState.nextRound)} ${gameState.nextRound.honba}本場 / 親${SEAT_LABELS[gameState.nextRound.dealer]} / 供託${gameState.nextRound.deposit} / 現在点 ${pointText()}`);
+    }else{finishMatch(gameState.returnEast?"返り東で40000点超え":"南3局終了時に40000点超え");}
     render();
   }
 };
@@ -1035,7 +1057,7 @@ function renderPlayerHand(){
     h.appendChild(tileNode(view.drawn.tile,"tile drawn-tile",()=>discard(view.drawn.index)));
   }
 }
-function render(){bindPlayerAliases();const rl=document.getElementById("roundLabel");if(rl)rl.textContent=`${gameState.roundWind}${gameState.handNumber}局`;document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${gameState.roundWind}${gameState.handNumber}局 / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;const pl=document.getElementById("pointLabel");if(pl)pl.textContent=pointText();const mrl=document.getElementById("matchResultLabel");if(mrl)mrl.textContent=detailedMatchResultText();updateShantenDebug();updateYakuDebug(pendingWin);const rb=document.getElementById("riichiButton");if(rb){const cr=canDeclareRiichi(PLAYER_SEAT);rb.disabled=!cr.ok;rb.title=cr.reason;}const tb=document.getElementById("tsumoButton");if(tb)tb.disabled=!(pendingWin&&pendingWin.type==="tsumo"&&pendingWin.winner===PLAYER_SEAT);const rob=document.getElementById("ronButton");if(rob)rob.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.winner===PLAYER_SEAT);const sb=document.getElementById("skipRonButton");if(sb){sb.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.skippable);sb.title=(pendingWin&&pendingWin.type==="ron"&&!pendingWin.skippable)?"リーチ後は見逃し不可":"";}const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const nr=document.getElementById("nextRoundButton");if(nr){nr.disabled=!gameState.nextRound;nr.textContent=gameState.matchResult?"対局終了":"次局へ";}const restart=document.getElementById("restartMatchButton");if(restart){restart.disabled=!gameState.matchResult;}const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
+function render(){bindPlayerAliases();const rl=document.getElementById("roundLabel");if(rl)rl.textContent=roundLabelText();document.getElementById("remain").textContent=wall.length;document.getElementById("rinshanRemain").textContent=rinshanPile.length+"枚";document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;const pl=document.getElementById("pointLabel");if(pl)pl.textContent=pointText();const mrl=document.getElementById("matchResultLabel");if(mrl)mrl.textContent=detailedMatchResultText();updateShantenDebug();updateYakuDebug(pendingWin);const rb=document.getElementById("riichiButton");if(rb){const cr=canDeclareRiichi(PLAYER_SEAT);rb.disabled=!cr.ok;rb.title=cr.reason;}const tb=document.getElementById("tsumoButton");if(tb)tb.disabled=!(pendingWin&&pendingWin.type==="tsumo"&&pendingWin.winner===PLAYER_SEAT);const rob=document.getElementById("ronButton");if(rob)rob.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.winner===PLAYER_SEAT);const sb=document.getElementById("skipRonButton");if(sb){sb.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.skippable);sb.title=(pendingWin&&pendingWin.type==="ron"&&!pendingWin.skippable)?"リーチ後は見逃し不可":"";}const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const nr=document.getElementById("nextRoundButton");if(nr){nr.disabled=!gameState.nextRound;nr.textContent=gameState.matchResult?"対局終了":"次局へ";}const restart=document.getElementById("restartMatchButton");if(restart){restart.disabled=!gameState.matchResult;}const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
   renderPlayerHand();const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(riverTileNode(t)));const rSouth=document.getElementById("riverSouth");if(rSouth){rSouth.innerHTML="";gameState.rivers.south.forEach(t=>rSouth.appendChild(riverTileNode(t)));}const rWest=document.getElementById("riverWest");if(rWest){rWest.innerHTML="";gameState.rivers.west.forEach(t=>rWest.appendChild(riverTileNode(t)));}const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!(TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0);const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");}
 
 function isWinningHandForSeat(seat, extraTile=null){
@@ -1086,8 +1108,8 @@ function finishAgari(label){
   log(`${label}：${kind}で局終了 / ${yakuSummaryText(info)} / 合計${info.totalHan}翻 / ${info.limit} / ${info.score.summary}`);
   log(`点棒精算：${settlement.summary} / 現在点 ${pointText()}`);
   if(gameState.nextRound){
-    log(`次局準備：${gameState.nextRound.roundWind}${gameState.nextRound.handNumber}局 ${gameState.nextRound.honba}本場 / 親${SEAT_LABELS[gameState.nextRound.dealer]} / 供託${gameState.nextRound.deposit}`);
-  }else{finishMatch("南3局で子の和了");}
+    log(`次局準備：${roundLabelText(gameState.nextRound)} ${gameState.nextRound.honba}本場 / 親${SEAT_LABELS[gameState.nextRound.dealer]} / 供託${gameState.nextRound.deposit}`);
+  }else{finishMatch(gameState.returnEast?"返り東で40000点超え":"南3局終了時に40000点超え");}
   pendingWin=null;
   render();
 }
