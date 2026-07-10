@@ -416,3 +416,8 @@ button {
 
 .drawn-tile-gap{display:inline-block;width:18px;}
 .drawn-tile{box-shadow:0 0 0 2px rgba(255,245,208,.28);}
+
+/* v0.3.13-4 profile / extensible statistics foundation */
+.profile-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px 16px;align-items:center}
+.profile-grid>div{padding:8px 10px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(0,0,0,.12)}
+@media(max-width:900px){.profile-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}

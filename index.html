@@ -156,6 +156,17 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div class="note">v0.3.12-2確認用：手番移動後のツモは自動です。自家はツモ後に打牌を選び、南家・西家は自動でツモ打牌します。</div>
     </div>
 
+    <div class="panel profile-panel" id="profilePanel">
+      <div class="area-title">プレイヤープロフィール（基盤）</div>
+      <div class="profile-grid">
+        <div>名前：<b id="profileNameLabel">プレイヤー</b></div>
+        <div>段位：<b id="profileRankLabel">未設定</b></div>
+        <div>レート：<b id="profileRatingLabel">1500</b></div>
+        <div>総対局数：<b id="profileMatchesLabel">0</b></div>
+      </div>
+      <div class="note">統計データはバージョン管理された拡張形式で保存します。将来、役別和了回数・平均打点・局別傾向などをプレミアム統計へ追加できます。</div>
+    </div>
+
     <div class="panel match-result-panel" id="matchResultPanel" hidden>
       <div class="area-title">対局終了結果</div>
       <div class="result-note" id="matchEndReason"></div>
@@ -251,9 +262,119 @@ function showCall(text,kind=""){
   callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
 }
 
+const PROFILE_STORAGE_KEY="ksb.profileStats";
+const PROFILE_SCHEMA_VERSION=1;
+function emptySeatCounter(){return {east:0,south:0,west:0};}
+function emptySeatMap(factory){return {east:factory(),south:factory(),west:factory()};}
+function createMatchStats(){
+  return {
+    schemaVersion:1,
+    handsPlayed:0,
+    wins:emptySeatCounter(),
+    dealIns:emptySeatCounter(),
+    bustAwards:emptySeatCounter(),
+    busted:emptySeatCounter(),
+    yakuWins:emptySeatMap(()=>({})),
+    winEvents:[]
+  };
+}
+function mergeObjectCounter(target,source){
+  Object.entries(source||{}).forEach(([key,value])=>target[key]=(target[key]||0)+(Number(value)||0));
+  return target;
+}
+function normalizeMatchStats(raw){
+  const stats=createMatchStats();
+  if(!raw||typeof raw!=="object")return stats;
+  stats.handsPlayed=Number(raw.handsPlayed)||0;
+  SEATS.forEach(seat=>{
+    stats.wins[seat]=Number(raw.wins?.[seat])||0;
+    stats.dealIns[seat]=Number(raw.dealIns?.[seat])||0;
+    stats.bustAwards[seat]=Number(raw.bustAwards?.[seat])||0;
+    stats.busted[seat]=Number(raw.busted?.[seat])||0;
+    mergeObjectCounter(stats.yakuWins[seat],raw.yakuWins?.[seat]);
+  });
+  stats.winEvents=Array.isArray(raw.winEvents)?raw.winEvents.slice(-200):[];
+  return stats;
+}
+function createProfileStats(){
+  return {
+    schemaVersion:PROFILE_SCHEMA_VERSION,
+    profile:{name:"プレイヤー",rank:"未設定",rating:1500},
+    totals:{matches:0,hands:0,wins:0,dealIns:0,bustAwards:0,busted:0},
+    placements:{1:0,2:0,3:0},
+    yaku:{winsByName:{},hanByName:{}},
+    aggregates:{finalPointsTotal:0,rankTotal:0,winScoreTotal:0},
+    matchHistory:[],
+    extensionData:{}
+  };
+}
+function migrateProfileStats(raw){
+  const base=createProfileStats();
+  if(!raw||typeof raw!=="object")return base;
+  base.profile=Object.assign(base.profile,raw.profile||{});
+  base.totals=Object.assign(base.totals,raw.totals||{});
+  base.placements=Object.assign(base.placements,raw.placements||{});
+  base.yaku.winsByName=Object.assign({},raw.yaku?.winsByName||{});
+  base.yaku.hanByName=Object.assign({},raw.yaku?.hanByName||{});
+  base.aggregates=Object.assign(base.aggregates,raw.aggregates||{});
+  base.matchHistory=Array.isArray(raw.matchHistory)?raw.matchHistory.slice(-100):[];
+  base.extensionData=Object.assign({},raw.extensionData||{});
+  base.schemaVersion=PROFILE_SCHEMA_VERSION;
+  return base;
+}
+function loadProfileStats(){
+  try{return migrateProfileStats(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY)||"null"));}
+  catch(e){return createProfileStats();}
+}
+let profileStats=loadProfileStats();
+function saveProfileStats(){
+  try{localStorage.setItem(PROFILE_STORAGE_KEY,JSON.stringify(profileStats));}
+  catch(e){console.warn("統計データを保存できませんでした",e);}
+}
+function renderProfile(){
+  const fields={profileNameLabel:profileStats.profile.name,profileRankLabel:profileStats.profile.rank,profileRatingLabel:profileStats.profile.rating,profileMatchesLabel:profileStats.totals.matches};
+  Object.entries(fields).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=value;});
+}
+function persistCompletedMatch(){
+  if(!gameState.matchResult||gameState.matchResult.persisted)return;
+  const playerRow=gameState.matchResult.ranking.find(row=>row.seat===PLAYER_SEAT);
+  if(!playerRow)return;
+  const stats=ensureStats();
+  profileStats.totals.matches+=1;
+  profileStats.totals.hands+=stats.handsPlayed||0;
+  profileStats.totals.wins+=stats.wins[PLAYER_SEAT]||0;
+  profileStats.totals.dealIns+=stats.dealIns[PLAYER_SEAT]||0;
+  profileStats.totals.bustAwards+=stats.bustAwards[PLAYER_SEAT]||0;
+  profileStats.totals.busted+=stats.busted[PLAYER_SEAT]||0;
+  profileStats.placements[playerRow.rank]=(profileStats.placements[playerRow.rank]||0)+1;
+  profileStats.aggregates.finalPointsTotal+=playerRow.points||0;
+  profileStats.aggregates.rankTotal+=playerRow.rank||0;
+  mergeObjectCounter(profileStats.yaku.winsByName,stats.yakuWins[PLAYER_SEAT]);
+  (stats.winEvents||[]).filter(e=>e.seat===PLAYER_SEAT).forEach(event=>{
+    (event.yaku||[]).forEach(y=>profileStats.yaku.hanByName[y.name]=(profileStats.yaku.hanByName[y.name]||0)+(Number(y.han)||0));
+    profileStats.aggregates.winScoreTotal+=Number(event.score)||0;
+  });
+  profileStats.matchHistory.push({
+    id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    playedAt:new Date().toISOString(),
+    rank:playerRow.rank,
+    finalPoints:playerRow.points,
+    reason:gameState.matchResult.reason,
+    hands:stats.handsPlayed||0,
+    wins:stats.wins[PLAYER_SEAT]||0,
+    dealIns:stats.dealIns[PLAYER_SEAT]||0,
+    yakuWins:Object.assign({},stats.yakuWins[PLAYER_SEAT]),
+    extensionData:{}
+  });
+  profileStats.matchHistory=profileStats.matchHistory.slice(-100);
+  gameState.matchResult.persisted=true;
+  saveProfileStats();
+  renderProfile();
+}
+
 function createInitialGameState(){
   return {
-    version:"v0.3.13-3",
+    version:"v0.3.13-4",
     roundWind:"東",
     handNumber:1,
     returnEast:false,
@@ -281,7 +402,7 @@ function createInitialGameState(){
     pendingSuukan:false,
     agariYameAvailable:false,
     agariYameWinner:null,
-    stats:{handsPlayed:0,wins:{east:0,south:0,west:0},dealIns:{east:0,south:0,west:0},bustAwards:{east:0,south:0,west:0}}
+    stats:createMatchStats()
   };
 }
 
@@ -297,14 +418,7 @@ function carryIntoNewGameState(carry){
   next.currentSeat=next.dealer;
   next.turnIndex=SEATS.indexOf(next.currentSeat);
   next.points=Object.assign({}, carry.points || next.points);
-  if(carry.stats){
-    next.stats={
-      handsPlayed:carry.stats.handsPlayed||0,
-      wins:Object.assign({east:0,south:0,west:0},carry.stats.wins||{}),
-      dealIns:Object.assign({east:0,south:0,west:0},carry.stats.dealIns||{}),
-      bustAwards:Object.assign({east:0,south:0,west:0},carry.stats.bustAwards||{})
-    };
-  }
+  if(carry.stats)next.stats=normalizeMatchStats(carry.stats);
   return next;
 }
 
@@ -380,14 +494,36 @@ function rateText(count,total){return total>0?`${((count/total)*100).toFixed(1)}
 function rawScore(points){return (points-40000)/1000;}
 function signedScore(value){return `${value>=0?"+":""}${Number(value).toFixed(1)}`;}
 function ensureStats(){
-  if(!gameState.stats)gameState.stats={handsPlayed:0,wins:{east:0,south:0,west:0},dealIns:{east:0,south:0,west:0},bustAwards:{east:0,south:0,west:0}};
+  gameState.stats=normalizeMatchStats(gameState.stats);
   return gameState.stats;
 }
-function recordWinStats(winners,from=null,bustWinner=null){
+function recordWinStats(winners,from=null,bustWinner=null,winDetails=[]){
   const stats=ensureStats();
   [...new Set(winners)].forEach(seat=>stats.wins[seat]=(stats.wins[seat]||0)+1);
   if(from&&from!==winners[0])stats.dealIns[from]=(stats.dealIns[from]||0)+1;
   if(bustWinner)stats.bustAwards[bustWinner]=(stats.bustAwards[bustWinner]||0)+1;
+  winDetails.forEach(detail=>{
+    const seat=detail.seat;
+    if(!SEATS.includes(seat))return;
+    (detail.info?.yaku||[]).forEach(y=>{
+      const name=String(y.name||"不明");
+      stats.yakuWins[seat][name]=(stats.yakuWins[seat][name]||0)+1;
+    });
+    stats.winEvents.push({
+      seat,
+      type:detail.win?.type||"unknown",
+      from:detail.win?.from||seat,
+      tile:detail.win?.tile||null,
+      yaku:(detail.info?.yaku||[]).map(y=>({name:y.name,han:y.han})),
+      totalHan:Number(detail.info?.totalHan)||0,
+      limit:detail.info?.limit||"",
+      score:Number(detail.info?.score?.ron||detail.info?.score?.total||0),
+      round:roundLabelText(),
+      recordedAt:new Date().toISOString(),
+      extensionData:{}
+    });
+  });
+  stats.winEvents=stats.winEvents.slice(-200);
 }
 function resultScoreBreakdown(row){
   const raw=rawScore(row.points);
@@ -443,7 +579,10 @@ function finishMatch(reason){
   gameState.gameEnded=true;
   gameState.started=false;
   canDiscard=false;
+  const busted=getBustedSeat();
+  if(busted){const stats=ensureStats();stats.busted[busted]=(stats.busted[busted]||0)+1;}
   gameState.matchResult=makeMatchResult(reason);
+  persistCompletedMatch();
   log(`対局終了：${reason} / ${matchResultText()}`);
 }
 
@@ -1272,7 +1411,7 @@ function renderPlayerHand(){
     h.appendChild(tileNode(view.drawn.tile,"tile drawn-tile",()=>discard(view.drawn.index)));
   }
 }
-function render(){bindPlayerAliases();const rl=document.getElementById("roundLabel");if(rl)rl.textContent=roundLabelText();document.getElementById("remain").textContent=wall.length;document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;const pl=document.getElementById("pointLabel");if(pl)pl.textContent=pointText();const mrl=document.getElementById("matchResultLabel");if(mrl)mrl.textContent=detailedMatchResultText();renderMatchResultPanel();updateShantenDebug();updateYakuDebug(pendingWin);const rb=document.getElementById("riichiButton");if(rb){const selecting=gameState.pendingRiichiDiscard===PLAYER_SEAT&&!gameState.riichi[PLAYER_SEAT];const cr=canDeclareRiichi(PLAYER_SEAT);rb.disabled=selecting?false:!cr.ok;rb.title=selecting?"リーチ選択をキャンセル":cr.reason;rb.textContent=selecting?"リーチ取消":"リーチ";}const tb=document.getElementById("tsumoButton");if(tb)tb.disabled=!(pendingWin&&pendingWin.type==="tsumo"&&pendingWin.winner===PLAYER_SEAT);const rob=document.getElementById("ronButton");if(rob)rob.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.winner===PLAYER_SEAT);const sb=document.getElementById("skipRonButton");if(sb){sb.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.skippable);sb.title=(pendingWin&&pendingWin.type==="ron"&&!pendingWin.skippable)?"リーチ後は見逃し不可":"";}const db=document.getElementById("drawButton");if(db){db.disabled=!(gameState.started&&TurnManager.isPlayer()&&!canDiscard&&!pendingWin&&gameState.phase===GamePhase.DRAW);db.title=autoTurnProgress?"通常は自動ツモします。停止時の予備操作です":"手動ツモ";}const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";const nr=document.getElementById("nextRoundButton");if(nr){nr.disabled=!gameState.nextRound||gameState.agariYameAvailable;nr.textContent=gameState.matchResult?"対局終了":"次局へ";}const ay=document.getElementById("agariYameButton");if(ay){ay.disabled=!(gameState.agariYameAvailable&&gameState.agariYameWinner===PLAYER_SEAT);}const ac=document.getElementById("continueAllLastButton");if(ac){ac.disabled=!(gameState.agariYameAvailable&&gameState.nextRound);}const restart=document.getElementById("restartMatchButton");if(restart){restart.disabled=!gameState.matchResult;}const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
+function render(){bindPlayerAliases();renderProfile();const rl=document.getElementById("roundLabel");if(rl)rl.textContent=roundLabelText();document.getElementById("remain").textContent=wall.length;document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();document.getElementById("turnLabel").textContent=SEAT_LABELS[TurnManager.current()];document.getElementById("phaseLabel").textContent=gameState.phase;document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;const pl=document.getElementById("pointLabel");if(pl)pl.textContent=pointText();const mrl=document.getElementById("matchResultLabel");if(mrl)mrl.textContent=detailedMatchResultText();renderMatchResultPanel();updateShantenDebug();updateYakuDebug(pendingWin);const rb=document.getElementById("riichiButton");if(rb){const selecting=gameState.pendingRiichiDiscard===PLAYER_SEAT&&!gameState.riichi[PLAYER_SEAT];const cr=canDeclareRiichi(PLAYER_SEAT);rb.disabled=selecting?false:!cr.ok;rb.title=selecting?"リーチ選択をキャンセル":cr.reason;rb.textContent=selecting?"リーチ取消":"リーチ";}const tb=document.getElementById("tsumoButton");if(tb)tb.disabled=!(pendingWin&&pendingWin.type==="tsumo"&&pendingWin.winner===PLAYER_SEAT);const rob=document.getElementById("ronButton");if(rob)rob.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.winner===PLAYER_SEAT);const sb=document.getElementById("skipRonButton");if(sb){sb.disabled=!(pendingWin&&pendingWin.type==="ron"&&pendingWin.skippable);sb.title=(pendingWin&&pendingWin.type==="ron"&&!pendingWin.skippable)?"リーチ後は見逃し不可":"";}const db=document.getElementById("drawButton");if(db){db.disabled=!(gameState.started&&TurnManager.isPlayer()&&!canDiscard&&!pendingWin&&gameState.phase===GamePhase.DRAW);db.title=autoTurnProgress?"通常は自動ツモします。停止時の予備操作です":"手動ツモ";}const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";const nr=document.getElementById("nextRoundButton");if(nr){nr.disabled=!gameState.nextRound||gameState.agariYameAvailable;nr.textContent=gameState.matchResult?"対局終了":"次局へ";}const ay=document.getElementById("agariYameButton");if(ay){ay.disabled=!(gameState.agariYameAvailable&&gameState.agariYameWinner===PLAYER_SEAT);}const ac=document.getElementById("continueAllLastButton");if(ac){ac.disabled=!(gameState.agariYameAvailable&&gameState.nextRound);}const restart=document.getElementById("restartMatchButton");if(restart){restart.disabled=!gameState.matchResult;}const doraRow=document.getElementById("doraRow");doraRow.innerHTML="";doraIndicators.forEach(t=>doraRow.appendChild(tileNode(t,"tile small")));
   renderPlayerHand();const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(riverTileNode(t)));const rSouth=document.getElementById("riverSouth");if(rSouth){rSouth.innerHTML="";gameState.rivers.south.forEach(t=>rSouth.appendChild(riverTileNode(t)));}const rWest=document.getElementById("riverWest");if(rWest){rWest.innerHTML="";gameState.rivers.west.forEach(t=>rWest.appendChild(riverTileNode(t)));}const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!(TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0);const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");}
 
 function isWinningHandForSeat(seat, extraTile=null){
@@ -1318,7 +1457,7 @@ function finishRonClaims(winners,discardSeat,tile,label="ロン和了"){
     if(!bustWinner&&gameState.points[discardSeat]<=0)bustWinner=x.seat;
     details.push(`${SEAT_LABELS[x.seat]} ${pay}点${i===0&&deposit?`＋供託${deposit*1000}`:""}`);
   });
-  recordWinStats(valid.map(x=>x.seat),discardSeat,bustWinner);
+  recordWinStats(valid.map(x=>x.seat),discardSeat,bustWinner,valid);
   gameState.deposit=0;gameState.started=false;canDiscard=false;pendingWin=null;gameState.gameEnded=true;
   const dealerWinner=valid.find(x=>x.seat===gameState.dealer);
   gameState.nextRound=makeNextRoundCarryAfterAgari({winner:(dealerWinner||valid[0]).seat});
@@ -1371,7 +1510,7 @@ function finishAgari(label){
   const settlement=scorePaymentForWin(info,win);
   applyPointDeltas(settlement.deltas);
   gameState.lastSettlement=settlement;
-  recordWinStats([win.winner],win.type==="ron"?win.from:null,null);
+  recordWinStats([win.winner],win.type==="ron"?win.from:null,null,[{seat:win.winner,win,info}]);
   gameState.deposit=0;
   gameState.started=false;
   canDiscard=false;
@@ -1680,7 +1819,7 @@ function debugAllLastDealerNoten(){
   GameController.endByRyukyoku(map);
 }
 
-gameState=createInitialGameState();bindPlayerAliases();newGame();
+gameState=createInitialGameState();bindPlayerAliases();renderProfile();newGame();
 </script>
 </body>
 </html>
