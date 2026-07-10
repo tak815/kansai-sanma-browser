@@ -69,6 +69,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button class="btn btn-debug" onclick="setDebugKanBlocked()">カン不可確認</button>
       <button class="btn btn-debug" onclick="setDebugRiichiTenpai()">リーチ確認</button>
       <button class="btn btn-debug" onclick="setDebugCpuRiichiTenpai()">CPU即リーチ確認</button>
+      <button class="btn btn-debug" onclick="setDebugCpuPonChance()">CPUポン確認</button>
       <button class="btn btn-debug" onclick="setDebugRonChance()">ロン確認</button>
       <button class="btn btn-debug" onclick="setDebugTsumoAgari()">ツモ和了確認</button>
       <button class="btn btn-debug" onclick="setDebugOpenTanyaoOnly()">食いタンのみ確認</button>
@@ -148,7 +149,7 @@ let gameState,hand,river,melds;
 
 function createInitialGameState(){
   return {
-    version:"v0.3.11-1",
+    version:"v0.3.11-3",
     roundWind:"東",
     handNumber:1,
     honba:0,
@@ -311,7 +312,7 @@ const GameController={
     pendingWin=null;
     canDiscard=false;
     lastDraw=null;
-    log(`v0.3.11-1：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
+    log(`v0.3.11-3：${gameState.roundWind}${gameState.handNumber}局 ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
     render();
   },
   drawForCurrentSeat(){
@@ -354,6 +355,7 @@ const GameController={
     this.setPhase(GamePhase.DISCARD);
     log(`${SEAT_LABELS[seat]} 打牌：${TurnManager.isPlayer()?t:"牌"}`);
     if(checkRonAfterDiscard(seat,t)){render();return true;}
+    if(tryCpuPonAfterDiscard(seat,t)){render();return true;}
     this.gotoNextPlayer();
     return true;
   },
@@ -468,6 +470,63 @@ function declareCpuRiichi(seat){
   log(`${SEAT_LABELS[seat]} リーチ宣言：1000点を供託へ`);
 }
 function scheduleAiDiscard(){clearAiTimer();if(pendingWin)return;if(debugAiPaused){log("AI停止中：CPU打牌を保留しています");render();return;}aiTimerId=window.setTimeout(()=>{const seat=TurnManager.current();autoNukiFlowersForSeat(seat);const candidates=gameState.hands[seat].filter(t=>!FLOWERS.has(t));if(!candidates.length){log(`${SEAT_LABELS[seat]}：打牌可能牌がないため流局扱い`);GameController.endByRyukyoku();return;}const picked=aiChooseDiscardIndex(seat);if(!picked){GameController.endByRyukyoku();return;}cpuDecisionText=`${SEAT_LABELS[seat]}：${picked.tile}切り / ${picked.reason}`;if(canCpuDeclareRiichi(seat,picked))declareCpuRiichi(seat);log(`${SEAT_LABELS[seat]} CPU判断：${picked.tile}切り / ${picked.reason}`);render();GameController.discardFromSeat(seat,picked.index);},AI_THINK_MS);}
+
+
+function isHonor(tile){return ["東","南","西","北","白","發","中"].includes(tile);}
+function isValueHonorForSeat(seat,tile){
+  if(["白","發","中"].includes(tile))return true;
+  const seatWind={east:"東",south:"南",west:"西"}[seat];
+  return tile===seatWind || tile===gameState.roundWind;
+}
+function suitOf(tile){return /^[1-9][ps]$/.test(tile)?tile[1]:null;}
+function cpuPonDecision(seat,tile){
+  if(seat===PLAYER_SEAT||gameState.riichi[seat]||FLOWERS.has(tile))return {ok:false,reason:"対象外"};
+  const handTiles=gameState.hands[seat];
+  const matching=handTiles.reduce((n,t)=>n+(t===tile?1:0),0);
+  if(matching<2)return {ok:false,reason:"同牌不足"};
+  let before=99,after=99;
+  try{before=calcShantenInfo(seat).shanten;}catch(e){}
+  const removed=[];
+  for(let i=handTiles.length-1;i>=0&&removed.length<2;i--){if(handTiles[i]===tile)removed.push(handTiles.splice(i,1)[0]);}
+  gameState.melds[seat].push({type:"ポン",tile,tiles:[tile,tile,tile],from:"debug-check"});
+  try{after=calcShantenInfo(seat).shanten;}catch(e){}
+  gameState.melds[seat].pop();
+  handTiles.push(...removed);sortSeatHand(seat);
+  const counts={};handTiles.forEach(t=>counts[t]=(counts[t]||0)+1);
+  const pairOrTripletCount=Object.values(counts).filter(v=>v>=2).length+(gameState.melds[seat]||[]).length;
+  const suits=new Set(handTiles.map(suitOf).filter(Boolean));
+  const honitsuDirection=suits.size<=1 && handTiles.some(isHonor);
+  const valueHonor=isValueHonorForSeat(seat,tile);
+  const improves=after<before;
+  const toitoiDirection=pairOrTripletCount>=4;
+  const ok=valueHonor||improves||toitoiDirection||honitsuDirection;
+  let reason=valueHonor?"役牌":improves?`${before}向聴→${after}向聴`:toitoiDirection?"トイトイ方向":honitsuDirection?"ホンイツ方向":"見送り";
+  return {ok,reason,before,after};
+}
+function cpuPonPriority(discardSeat){
+  const start=SEATS.indexOf(discardSeat);
+  return [1,2].map(n=>SEATS[(start+n)%SEATS.length]).filter(seat=>seat!==PLAYER_SEAT);
+}
+function tryCpuPonAfterDiscard(discardSeat,tile){
+  for(const seat of cpuPonPriority(discardSeat)){
+    const decision=cpuPonDecision(seat,tile);
+    if(!decision.ok)continue;
+    const handTiles=gameState.hands[seat];
+    for(let n=0;n<2;n++){const idx=handTiles.indexOf(tile);if(idx>=0)handTiles.splice(idx,1);}
+    gameState.melds[seat].push({type:"ポン",tile,tiles:[tile,tile,tile],from:discardSeat});
+    gameState.rivers[discardSeat].pop();
+    gameState.currentSeat=seat;
+    gameState.turnIndex=SEATS.indexOf(seat);
+    gameState.phase=GamePhase.ACTION;
+    canDiscard=true;lastDraw=null;
+    cpuDecisionText=`${SEAT_LABELS[seat]}：${tile}をポン / ${decision.reason}`;
+    log(`${SEAT_LABELS[seat]} CPU判断：${SEAT_LABELS[discardSeat]}の${tile}をポン（${decision.reason}）`);
+    sortSeatHand(seat);
+    scheduleAiDiscard();
+    return true;
+  }
+  return false;
+}
 
 function hasFlowerInSeat(seat){return gameState.hands[seat].some(t=>FLOWERS.has(t));}
 function takeRinshanForSeat(seat){
@@ -965,6 +1024,19 @@ function setDebugCpuRiichiTenpai(){
 }
 function setDebugTenpai(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","8p","2s","3s","4s","東"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("聴牌確認：東単騎待ちの13枚形を作成しました");render();}
 function setDebugIishanten(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["2p","3p","4p","3p","4p","5p","6p","7p","2s","3s","4s","東","白"];bindPlayerAliases();gameState.rivers[PLAYER_SEAT]=[];gameState.melds[PLAYER_SEAT]=[];gameState.flowers[PLAYER_SEAT]=[];riichiDeclared=false;canDiscard=false;lastDraw=null;sortHand();log("一向聴確認：通常形の一向聴サンプルを作成しました");render();}
+
+
+function setDebugCpuPonChance(){
+  clearAiTimer();pendingWin=null;debugAiPaused=false;
+  createWall();gameState=createInitialGameState();gameState.started=true;gameState.phase=GamePhase.ACTION;
+  gameState.currentSeat=PLAYER_SEAT;gameState.turnIndex=SEATS.indexOf(PLAYER_SEAT);
+  gameState.hands.east=["1p","2p","4p","5p","6p","7p","8p","9p","1s","2s","3s","東","東","發"];
+  gameState.hands.south=["發","發","2p","3p","4p","5p","6p","7p","2s","3s","4s","南","南"];
+  gameState.hands.west=["1p","1p","2p","3p","4p","5p","6p","7p","8p","2s","3s","4s","西"];
+  SEATS.forEach(sortSeatHand);bindPlayerAliases();
+  lastDraw="發";canDiscard=true;cpuDecisionText="CPUポン確認：自家の發を捨ててください";
+  log("CPUポン確認：自家手牌右端の發を捨てると、南家が役牌ポンします");render();
+}
 
 function setDebugRonChance(){
   resetDebugBase();
