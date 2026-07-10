@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.14-1</title>
+<title>関西三麻 試作 v0.3.15-1</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -40,10 +40,19 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 .stats-modal{position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center;padding:24px}.stats-modal[hidden]{display:none}.stats-card{width:min(1000px,96vw);max-height:88vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.55);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.55);text-align:left}.stats-head{display:flex;justify-content:space-between;align-items:center;gap:16px}.stats-head h2{margin:0;color:#ffe49a}.stats-summary{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;margin:16px 0}.stats-box{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px}.stats-box b{display:block;color:#ffe49a;font-size:20px}.stats-table{width:100%;border-collapse:collapse;margin-top:8px}.stats-table th,.stats-table td{border:1px solid rgba(255,255,255,.12);padding:8px}.stats-table th{background:rgba(216,179,90,.14);color:#ffe49a}.stats-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.stats-empty{color:#ccd6cf;padding:12px 0}.stats-section{margin-top:18px}.stats-section h3{margin:0 0 8px;color:#ffe49a}@media(max-width:720px){.stats-summary{grid-template-columns:repeat(2,1fr)}}
 
 .replay-modal{position:fixed;inset:0;z-index:10030;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px}.replay-modal[hidden]{display:none}.replay-card{width:min(1100px,97vw);max-height:92vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.6);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.58);text-align:left}.replay-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.replay-head h2{margin:0;color:#ffe49a}.replay-meta{margin:10px 0;color:#e8d79b}.replay-controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.replay-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.replay-tools select,.replay-tools input{background:#071d13;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px}.replay-tools input{min-width:180px}.replay-bookmark{color:#ffd86b}.replay-event-list button{display:block;width:100%;text-align:left;background:transparent;border:0;color:inherit;padding:2px 4px;cursor:pointer}.replay-event-list button:hover{background:rgba(255,255,255,.08)}.replay-library{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.replay-library select{min-width:280px;background:#071d13;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px}.replay-privacy{font-size:12px;color:#d6e2d9}.replay-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.replay-seat{background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px}.replay-seat h3{margin:0 0 6px;color:#ffe49a}.replay-tiles{display:flex;flex-wrap:wrap;gap:4px}.replay-event-list{max-height:180px;overflow:auto;background:rgba(0,0,0,.22);border-radius:8px;padding:8px;margin-top:12px;font-size:13px}.replay-event-list .active{color:#ffe49a;font-weight:800}.replay-empty{padding:18px;color:#ccd6cf}.replay-hidden-hand{display:flex;gap:4px;flex-wrap:wrap}.replay-tile-back{width:28px;height:40px;border-radius:5px;border:1px solid rgba(255,255,255,.35);background:linear-gradient(135deg,#174e38,#0b2f21);box-shadow:inset 0 0 0 2px rgba(216,179,90,.2)}.replay-delay-note{font-size:12px;color:#ffe49a;margin:6px 0}.replay-tools label{display:flex;align-items:center;gap:5px}.spectator-modal{position:fixed;inset:0;z-index:10025;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px}.spectator-modal[hidden]{display:none}.spectator-card{width:min(920px,96vw);max-height:88vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.6);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.58)}.spectator-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.spectator-head h2{margin:0;color:#ffe49a}.spectator-note{font-size:12px;color:#d6e2d9;margin:8px 0 12px}.spectator-list{display:grid;gap:10px}.spectator-match{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px}.spectator-match h3{margin:0 0 5px;color:#ffe49a;font-size:16px}.spectator-match p{margin:3px 0;color:#d6e2d9;font-size:13px}.spectator-empty{padding:20px;text-align:center;color:#ccd6cf}.spectator-badge{display:inline-block;padding:2px 7px;border-radius:999px;background:rgba(216,179,90,.18);color:#ffe49a;font-size:12px;margin-left:6px}@media(max-width:760px){.replay-grid{grid-template-columns:1fr}.spectator-match{grid-template-columns:1fr}}
+
+/* v0.3.15-1: landscape / normal match UI */
+.header-tools{display:flex;align-items:center;gap:8px}.header-button{border:1px solid rgba(255,255,255,.28);background:#202020;color:#fff;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer}.header-button:hover{background:#303030}.controls .debug-only-control{order:20}.controls.debug-collapsed .debug-only-control{display:none}.normal-ui .debug-only-control,.normal-ui .debug-info-row,.normal-ui .debug-only-block,.normal-ui .debug-line{display:none!important}.normal-ui .status{grid-template-columns:minmax(250px,.8fr) minmax(420px,1.4fr) minmax(240px,.8fr)}.normal-ui .info{font-size:14px;line-height:1.55}.normal-ui .controls{align-content:center}.normal-ui .layout{gap:10px}.normal-ui .panel{padding:10px}.normal-ui main{padding-bottom:96px}.hand{flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;padding:5px 2px 12px;scrollbar-width:thin}.hand .tile{flex:0 0 auto}.action-emphasis{outline:2px solid rgba(255,227,125,.42)}
+@media (orientation:landscape) and (max-height:820px){
+  :root{--tile-w:42px;--tile-h:56px}body{min-width:0}header{height:44px;padding:0 14px}header h1{font-size:18px}.version{font-size:11px}main{padding:8px;max-width:none}.status{grid-template-columns:minmax(220px,.75fr) minmax(470px,1.6fr) minmax(220px,.75fr);gap:8px;margin-bottom:8px}.panel{padding:8px;border-radius:9px}.info{font-size:12px;line-height:1.45;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px}.controls{gap:6px}.btn{font-size:12px;padding:7px 10px;border-radius:8px}.area-title{font-size:15px;margin:7px 0 5px}.tile.small{width:32px;height:44px}.river{max-width:620px}.log{height:106px;font-size:11px}.layout{gap:8px}.note,.debug-line{font-size:11px}.call-text{font-size:36px;padding:12px 26px}.profile-panel{display:none}.normal-ui .controls{position:fixed;left:8px;right:8px;bottom:8px;z-index:5000;background:rgba(4,35,20,.96);border-color:rgba(255,255,255,.24);box-shadow:0 10px 32px rgba(0,0,0,.5)}.normal-ui .status>.info,.normal-ui .status>.log{max-height:116px;overflow:auto}.normal-ui .layout{padding-bottom:76px}
+}
+@media (orientation:landscape) and (max-height:620px){:root{--tile-w:36px;--tile-h:48px}.tile.small{width:28px;height:38px}.status{grid-template-columns:220px 1fr 220px}.info{font-size:11px}.btn{font-size:11px;padding:6px 8px}.normal-ui .status>.info,.normal-ui .status>.log{max-height:92px}}
+@media (max-width:760px){.header-tools .version{display:none}.header-button{font-size:11px;padding:6px 8px}.hand{justify-content:flex-start}.status{grid-template-columns:1fr}.normal-ui .status{grid-template-columns:1fr}.normal-ui .controls{position:sticky;bottom:0}}
+
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.14-1 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="header-tools"><button id="uiModeButton" class="header-button" onclick="toggleNormalUiMode()">通常表示</button><button id="debugCollapseButton" class="header-button" onclick="toggleDebugControls()">デバッグを折りたたむ</button><div class="version">v0.3.15-1 / HTML + CSS + JavaScript</div></div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -64,13 +73,13 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div>点棒：<b id="pointLabel">自家35000 / 南家35000 / 西家35000</b></div>
       <div>対局結果：<b id="matchResultLabel">対局中</b></div>
       <div>状態：<b id="stateText">開始</b></div>
-      <div>手牌枚数：<b id="handCountDebug">自家13 / 南家13 / 西家13</b></div>
-      <div>河枚数：<b id="riverCountDebug">自家0 / 南家0 / 西家0</b></div>
-      <div>抜き花：<b id="flowerCountDebug">自家0 / 南家0 / 西家0</b></div>
-      <div>リーチ：<b id="riichiStateDebug">なし</b></div>
-      <div>CPU判断：<b id="cpuDecisionDebug">待機中</b></div>
+      <div class="debug-info-row">手牌枚数：<b id="handCountDebug">自家13 / 南家13 / 西家13</b></div>
+      <div class="debug-info-row">河枚数：<b id="riverCountDebug">自家0 / 南家0 / 西家0</b></div>
+      <div class="debug-info-row">抜き花：<b id="flowerCountDebug">自家0 / 南家0 / 西家0</b></div>
+      <div class="debug-info-row">リーチ：<b id="riichiStateDebug">なし</b></div>
+      <div class="debug-info-row">CPU判断：<b id="cpuDecisionDebug">待機中</b></div>
     </div>
-    <div class="panel controls">
+    <div class="panel controls" id="mainControls">
       <button id="drawButton" class="btn btn-primary" onclick="drawTile()">ツモ / 進行（予備）</button>
       <button id="flowerButton" class="btn btn-flower" onclick="nukiFlower()">抜き花</button>
       <button id="riichiButton" class="btn btn-primary" onclick="declareRiichi()">リーチ</button>
@@ -134,9 +143,9 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <div class="area-title">ドラ表示牌（流動式）</div>
       <div id="doraRow" class="dora-row"></div>
       <div class="note">開始時は初期ドラのみ。カン成立時だけ右側へカンドラが増えます（最大5枚）。裏ドラは非表示で内部確保。</div>
-      <div class="area-title">嶺上牌（4トン / 合計8枚）</div>
-      <div id="rinshan" class="rinshan"></div>
-      <div class="note">花牌補充・カン補充はここから取得。消費済みは空き枠表示。ユーザー表示の山残りには含めません。</div>
+      <div class="area-title debug-only-block">嶺上牌（4トン / 合計8枚）</div>
+      <div id="rinshan" class="rinshan debug-only-block"></div>
+      <div class="note debug-only-block">花牌補充・カン補充はここから取得。消費済みは空き枠表示。ユーザー表示の山残りには含めません。</div>
       <div class="area-title">抜き花（自家）</div>
       <div id="flowers" class="melds"></div>
       <div class="area-title">副露 / カン表示</div>
@@ -1958,6 +1967,47 @@ function debugAllLastDealerNoten(){
   const map={east:false,south:true,west:true};
   GameController.endByRyukyoku(map);
 }
+
+
+const CORE_CONTROL_IDS=new Set(["drawButton","flowerButton","riichiButton","tsumoButton","ronButton","skipRonButton","kanButton","nextRoundButton","agariYameButton","continueAllLastButton","soundButton","restartMatchButton"]);
+function initializeUiDisplay(){
+  const controls=document.getElementById("mainControls");
+  if(controls){
+    [...controls.querySelectorAll("button")].forEach(button=>{
+      const isCore=CORE_CONTROL_IDS.has(button.id)||["現在局を作り直す","リプレイ","高レート観戦"].includes(button.textContent.trim());
+      if(!isCore)button.classList.add("debug-only-control");
+      else button.classList.add("action-emphasis");
+    });
+  }
+  const savedMode=localStorage.getItem("ksb.ui.normalMode")==="1";
+  const savedCollapsed=localStorage.getItem("ksb.ui.debugCollapsed")==="1";
+  document.body.classList.toggle("normal-ui",savedMode);
+  if(controls)controls.classList.toggle("debug-collapsed",savedCollapsed);
+  updateUiModeButtons();
+}
+function updateUiModeButtons(){
+  const normal=document.body.classList.contains("normal-ui");
+  const controls=document.getElementById("mainControls");
+  const collapsed=controls&&controls.classList.contains("debug-collapsed");
+  const modeButton=document.getElementById("uiModeButton");
+  const collapseButton=document.getElementById("debugCollapseButton");
+  if(modeButton)modeButton.textContent=normal?"開発表示":"通常表示";
+  if(collapseButton)collapseButton.textContent=collapsed?"デバッグを展開":"デバッグを折りたたむ";
+}
+function toggleNormalUiMode(){
+  const enabled=!document.body.classList.contains("normal-ui");
+  document.body.classList.toggle("normal-ui",enabled);
+  localStorage.setItem("ksb.ui.normalMode",enabled?"1":"0");
+  updateUiModeButtons();
+}
+function toggleDebugControls(){
+  const controls=document.getElementById("mainControls");if(!controls)return;
+  const collapsed=!controls.classList.contains("debug-collapsed");
+  controls.classList.toggle("debug-collapsed",collapsed);
+  localStorage.setItem("ksb.ui.debugCollapsed",collapsed?"1":"0");
+  updateUiModeButtons();
+}
+initializeUiDisplay();
 
 gameState=createInitialGameState();bindPlayerAliases();renderProfile();newGame();
 </script>
