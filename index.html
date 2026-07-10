@@ -177,7 +177,9 @@ function createInitialGameState(){
     lastSettlement:null,
     nextRound:null,
     gameEnded:false,
-    matchResult:null
+    matchResult:null,
+    kanCount:0,
+    pendingSuukan:false
   };
 }
 
@@ -383,9 +385,13 @@ const GameController={
     canDiscard=false;
     this.setPhase(GamePhase.DISCARD);
     log(`${SEAT_LABELS[seat]} 打牌：${TurnManager.isPlayer()?t:"牌"}`);
-    if(checkRonAfterDiscard(seat,t)){render();return true;}
-    if(tryCpuDaiminkanAfterDiscard(seat,t)){render();return true;}
-    if(tryCpuPonAfterDiscard(seat,t)){render();return true;}
+    if(handleClaimsAfterDiscard(seat,t)){render();return true;}
+    if(gameState.pendingSuukan){
+      gameState.pendingSuukan=false;
+      log("四槓流れ：4つ目のカン後の打牌にロンがなかったため流局");
+      this.endByRyukyoku();
+      return true;
+    }
     this.gotoNextPlayer();
     return true;
   },
@@ -1084,6 +1090,63 @@ function checkTsumoWinAfterDraw(seat){
   log(`${SEAT_LABELS[seat]} ツモ和了可能：${seat===PLAYER_SEAT?"ツモ和了ボタンを押してください":"CPU和了確認"}`);
   return true;
 }
+
+function ronPriority(discardSeat){
+  const start=SEATS.indexOf(discardSeat);
+  return [1,2].map(n=>SEATS[(start+n)%SEATS.length]);
+}
+function collectRonCandidates(discardSeat,tile){
+  return ronPriority(discardSeat).filter(seat=>{
+    if(gameState.furiten[seat])return false;
+    return isWinningHandForSeat(seat,tile);
+  });
+}
+function finishRonClaims(winners,discardSeat,tile,label="ロン和了"){
+  const valid=[];
+  winners.forEach(seat=>{
+    const win={type:"ron",winner:seat,from:discardSeat,tile,riichi:!!gameState.riichi[seat]};
+    const info=evaluateYaku(seat,win);
+    if(info.canWinByYaku)valid.push({seat,win,info});
+  });
+  if(!valid.length){pendingWin=null;GameController.gotoNextPlayer();render();return;}
+  const deposit=gameState.deposit||0;
+  let bustWinner=null;
+  const details=[];
+  valid.forEach((x,i)=>{
+    const pay=(x.info.score.ron||0)+(gameState.honba||0)*300;
+    gameState.points[discardSeat]-=pay;
+    gameState.points[x.seat]+=pay+(i===0?deposit*1000:0);
+    if(!bustWinner&&gameState.points[discardSeat]<=0)bustWinner=x.seat;
+    details.push(`${SEAT_LABELS[x.seat]} ${pay}点${i===0&&deposit?`＋供託${deposit*1000}`:""}`);
+  });
+  gameState.deposit=0;gameState.started=false;canDiscard=false;pendingWin=null;gameState.gameEnded=true;
+  const dealerWinner=valid.find(x=>x.seat===gameState.dealer);
+  gameState.nextRound=makeNextRoundCarryAfterAgari({winner:(dealerWinner||valid[0]).seat});
+  GameController.setPhase(GamePhase.AGARI);
+  log(`${label}：${SEAT_LABELS[discardSeat]}放銃 → ${details.join(" / ")}${valid.length>1?"（ダブロン）":""}`);
+  if(bustWinner)log(`飛ばし賞：実際に0点以下にした ${SEAT_LABELS[bustWinner]}`);
+  log(`現在点 ${pointText()}`);
+  if(!gameState.nextRound)finishMatch(gameState.returnEast?"返り東で40000点超え":"南3局終了");
+  render();
+}
+function handleClaimsAfterDiscard(discardSeat,tile){
+  const ronWinners=collectRonCandidates(discardSeat,tile);
+  if(ronWinners.length){
+    const playerIncluded=ronWinners.includes(PLAYER_SEAT);
+    if(playerIncluded){
+      pendingWin={type:"ron",winner:PLAYER_SEAT,winners:ronWinners,from:discardSeat,tile,riichi:!!gameState.riichi[PLAYER_SEAT],skippable:!gameState.riichi[PLAYER_SEAT]};
+      canDiscard=false;GameController.setPhase(GamePhase.AGARI);
+      log(`ロン可能：${SEAT_LABELS[discardSeat]}の${tile}${ronWinners.length>1?" / ダブロン候補あり":""}${pendingWin.skippable?"。見送り可能":"。リーチ中のため見送り不可"}`);
+      return true;
+    }
+    finishRonClaims(ronWinners,discardSeat,tile,"CPU和了");
+    return true;
+  }
+  if(tryCpuDaiminkanAfterDiscard(discardSeat,tile))return true;
+  if(tryCpuPonAfterDiscard(discardSeat,tile))return true;
+  return false;
+}
+
 function checkRonAfterDiscard(discardSeat,tile){
   if(discardSeat===PLAYER_SEAT)return false;
   if(gameState.furiten[PLAYER_SEAT])return false;
@@ -1123,14 +1186,20 @@ function finishAgari(label){
   pendingWin=null;
   render();
 }
-function claimRon(){if(!pendingWin||pendingWin.type!=="ron"){alert("ロンできる状態ではありません");return;}finishAgari("自家 和了");}
+function claimRon(){
+  if(!pendingWin||pendingWin.type!=="ron"){alert("ロンできる状態ではありません");return;}
+  finishRonClaims(pendingWin.winners||[pendingWin.winner],pendingWin.from,pendingWin.tile,"自家 和了");
+}
 function claimTsumo(){if(!pendingWin||pendingWin.type!=="tsumo"||pendingWin.winner!==PLAYER_SEAT){alert("ツモ和了できる状態ではありません");return;}finishAgari("自家 和了");}
 function skipRon(){
   if(!pendingWin||pendingWin.type!=="ron"){return;}
   if(!pendingWin.skippable){alert("リーチ後は見逃しできません。ロンしてください。");return;}
-  log(`ロン見送り：${pendingWin.tile}をスルーしました（同巡フリテン詳細は次以降）`);
+  const cpuWinners=(pendingWin.winners||[]).filter(seat=>seat!==PLAYER_SEAT);
+  const from=pendingWin.from,tile=pendingWin.tile;
+  log(`ロン見送り：${tile}をスルーしました`);
   pendingWin=null;
-  GameController.gotoNextPlayer();
+  if(cpuWinners.length)finishRonClaims(cpuWinners,from,tile,"CPU和了");
+  else GameController.gotoNextPlayer();
 }
 
 function canDeclareRiichi(seat=PLAYER_SEAT){
@@ -1161,7 +1230,13 @@ function canRevealKanDora(){return doraIndicators.length<MAX_DORA_INDICATORS && 
 function getKanChoices(){const c=counts();const choices=[];if(!canRevealKanDora()||!TurnManager.isPlayer()||!canDiscard)return choices;Object.keys(c).forEach(t=>{if(!FLOWERS.has(t)&&c[t]>=4)choices.push({kind:"暗槓",tile:t});});melds.forEach((m,idx)=>{if(m.type==="ポン"&&!FLOWERS.has(m.tile)&&c[m.tile]>=1)choices.push({kind:"加槓",tile:m.tile,meldIndex:idx});});return choices;}
 function openKanChoices(){const choices=getKanChoices();if(!choices.length){alert("カンできる牌がありません");return;}if(choices.length===1){executeKan(choices[0]);return;}const text=choices.map((c,i)=>`${i+1}: ${c.kind} ${c.tile}`).join("\n");const n=Number(prompt("どのカンをしますか？\n"+text));if(n>=1&&n<=choices.length)executeKan(choices[n-1]);}
 function executeKan(choice){if(!canRevealKanDora()){alert("カンドラを新たにめくれないためカンできません");return;}revealKanDora();if(choice.kind==="暗槓"){let removed=0;hand=hand.filter(t=>{if(t===choice.tile&&removed<4){removed++;return false;}return true;});gameState.hands[PLAYER_SEAT]=hand;bindPlayerAliases();melds.push({type:"暗槓",tile:choice.tile,tiles:[choice.tile,choice.tile,choice.tile,choice.tile]});log("暗槓："+choice.tile);}else if(choice.kind==="加槓"){const idx=hand.indexOf(choice.tile);if(idx>=0)hand.splice(idx,1);const meld=melds[choice.meldIndex];meld.type="加槓";meld.tiles=[choice.tile,choice.tile,choice.tile,choice.tile];log("加槓："+choice.tile);}rinshanDraw();sortHand();canDiscard=true;GameController.setPhase(GamePhase.ACTION);render();}
-function revealKanDora(){const dora=wall.pop();const ura=wall.pop();if(dora)doraIndicators.push(dora);if(ura)uraIndicators.push(ura);log("カンドラ表示牌・カン裏ドラ牌を確保：表示山残り-2");}
+function revealKanDora(){
+  const dora=wall.pop();const ura=wall.pop();
+  if(dora)doraIndicators.push(dora);if(ura)uraIndicators.push(ura);
+  gameState.kanCount=(gameState.kanCount||0)+1;
+  if(gameState.kanCount>=4)gameState.pendingSuukan=true;
+  log(`カンドラ表示牌・カン裏ドラ牌を確保：表示山残り-2 / カン${gameState.kanCount}回`);
+}
 function rinshanDraw(){const t=rinshanPile.pop();if(!t){log("嶺上牌なし");return;}hand.push(t);lastDraw=t;log("嶺上ツモ："+t+"（嶺上牌から補充）");}
 function resetDebugBase(){clearAiTimer();pendingWin=null;cpuDecisionText="待機中";createWall();gameState=createInitialGameState();gameState.started=true;gameState.phase=GamePhase.ACTION;bindPlayerAliases();}
 function setDebugAnkan(){resetDebugBase();gameState.hands[PLAYER_SEAT]=["5p","5p","5p","5p","1p","2p","3p","4s","6s","7s","東","白","中","9p"];bindPlayerAliases();river=[];gameState.rivers[PLAYER_SEAT]=river;melds=[];gameState.melds[PLAYER_SEAT]=melds;riichiDeclared=false;canDiscard=true;lastDraw="9p";sortHand();log("デバッグ暗槓：5p×4を配牌しました");render();}
