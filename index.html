@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.13-1A</title>
+<title>関西三麻 試作 v0.3.13-1B</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -14,10 +14,22 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}.btn{padding:10px 18px;border:0;border-radius:10px;background:#e9e9e9;color:#111;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.35)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn-primary{background:#f2ca64}.btn-danger{background:#e0776e}.btn-debug{background:#96d6ff}.btn-debug-warn{background:#ffd36e}.btn-flower{background:#f5a3ff;color:#111}.btn-kan{background:#ffde72;color:#111;display:none;animation:pulse 1.2s infinite}.btn-kan.show{display:inline-block}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .area-title{font-size:18px;margin:12px 0 8px;color:#fff}.hand,.river,.melds,.rinshan,.dora-row{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:8px}.tile{width:var(--tile-w);height:var(--tile-h);border:1px solid #252b25;background:linear-gradient(145deg,#fffef4,#e8e2c8);color:#111;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 4px 0 #b9b39d,0 6px 10px rgba(0,0,0,.34);position:relative;overflow:hidden;transition:transform .12s ease,filter .12s ease}.tile:hover{transform:translateY(-3px);filter:brightness(1.03)}.tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none}.tile.small{width:38px;height:52px;font-size:13px}.tile.locked{cursor:default}.tile.selected{outline:4px solid #ffea7a}.tile.back{background:#1d3d8f;color:#fff;border-color:#bcd;cursor:default}.tile.back::before{content:"";width:22px;height:32px;border:2px solid rgba(255,255,255,.65);border-radius:3px}.tile.empty{background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.28);box-shadow:none;cursor:default}.tile.empty::after{content:"";width:20px;height:30px;border-radius:4px;background:rgba(0,0,0,.18)}.tile.riichi-discard{transform:rotate(90deg);margin-left:10px;margin-right:10px}.tile.flower::after{content:"花";position:absolute;right:2px;bottom:2px;background:#cc3;color:#111;border-radius:3px;font-size:10px;padding:1px 3px}.meld{display:flex;gap:3px;padding:6px 8px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(0,0,0,.22);align-items:center}.meld-label{font-size:12px;color:#ffd86a;margin-right:4px}.river{max-width:520px;margin-left:auto;margin-right:auto}.log{height:130px;overflow:auto;text-align:left;font-size:13px;background:rgba(0,0,0,.32);border-radius:10px;padding:10px}.log div{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06)}.note{font-size:13px;color:#ddd}.warning{color:#ffd86a}.layout{display:grid;grid-template-columns:1fr;gap:14px}.debug-line{font-size:13px;color:#cce;margin-top:6px}
 @media (max-width: 980px){body{min-width:0}.status{grid-template-columns:1fr}.tile{width:42px;height:56px}.controls{gap:8px}.btn{font-size:14px;padding:9px 12px}}
+
+.call-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0}
+.call-overlay.show{animation:callOverlayFade 980ms ease both}
+.call-overlay::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at center,rgba(255,245,208,.16),rgba(0,0,0,0) 42%)}
+.call-text{position:relative;min-width:180px;padding:16px 34px;border-radius:14px;border:1px solid rgba(255,245,208,.55);background:rgba(5,22,24,.86);box-shadow:0 14px 42px rgba(0,0,0,.45),inset 0 0 24px rgba(255,245,208,.06);color:#fff5d0;font-size:46px;font-weight:900;letter-spacing:.12em;text-shadow:0 3px 12px rgba(0,0,0,.65);transform:scale(.88)}
+.call-overlay.show .call-text{animation:callTextPop 980ms cubic-bezier(.2,.8,.2,1) both}
+.call-overlay[data-kind="ron"] .call-text,.call-overlay[data-kind="tsumo"] .call-text{border-color:rgba(255,215,128,.75);box-shadow:0 14px 42px rgba(0,0,0,.45),0 0 26px rgba(255,210,98,.2)}
+.call-overlay[data-kind="riichi"] .call-text{font-size:40px}
+.call-overlay[data-kind="flower"] .call-text{font-size:36px}
+@keyframes callOverlayFade{0%{opacity:0}14%{opacity:1}72%{opacity:1}100%{opacity:0}}
+@keyframes callTextPop{0%{transform:scale(.84);filter:blur(2px)}18%{transform:scale(1.06);filter:blur(0)}34%{transform:scale(1)}72%{transform:scale(1)}100%{transform:scale(.96)}}
+@media (prefers-reduced-motion:reduce){.call-overlay.show,.call-overlay.show .call-text{animation-duration:1ms}}
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.13-1A / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.13-1B / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -135,6 +147,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
     </div>
   </section>
 </main>
+<div id="callOverlay" class="call-overlay" aria-live="polite" aria-atomic="true"><div id="callText" class="call-text"></div></div>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
 for(let i=1;i<=9;i++){imageMap[i+"p"]=i+"p.png";imageMap[i+"s"]=i+"s.png";}
@@ -155,10 +168,23 @@ const DORA_NEXT={"1m":"9m","9m":"1m","1p":"2p","2p":"3p","3p":"4p","4p":"5p","5p
 
 let wall=[],rinshanPile=[],doraIndicators=[],uraIndicators=[],lastDraw=null,canDiscard=false,riichiDeclared=false,aiTimerId=null,debugAiPaused=false,pendingWin=null,cpuDecisionText="待機中",autoTurnProgress=true;
 let gameState,hand,river,melds;
+let callOverlayTimer=null;
+function showCall(text,kind=""){
+  const overlay=document.getElementById("callOverlay");
+  const label=document.getElementById("callText");
+  if(!overlay||!label)return;
+  if(callOverlayTimer){clearTimeout(callOverlayTimer);callOverlayTimer=null;}
+  overlay.classList.remove("show");
+  void overlay.offsetWidth;
+  label.textContent=text;
+  overlay.dataset.kind=kind;
+  overlay.classList.add("show");
+  callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
+}
 
 function createInitialGameState(){
   return {
-    version:"v0.3.13-1A",
+    version:"v0.3.13-1B",
     roundWind:"東",
     handNumber:1,
     returnEast:false,
@@ -793,6 +819,7 @@ function nukiFlower(){
   if(!canDiscard){alert("現在の確認版では、ツモ後・打牌前に抜き花できます");return;}
   if(!hasFlowerInSeat(PLAYER_SEAT)){alert("抜ける花牌がありません");return;}
   if(!rinshanPile.length){alert("嶺上牌がありません");return;}
+  showCall("抜き花","flower");
   nukiOneFlowerForSeat(PLAYER_SEAT);
   canDiscard=true;
   GameController.setPhase(GamePhase.ACTION);
@@ -1235,9 +1262,10 @@ function finishAgari(label){
 }
 function claimRon(){
   if(!pendingWin||pendingWin.type!=="ron"){alert("ロンできる状態ではありません");return;}
+  showCall("ロン","ron");
   finishRonClaims(pendingWin.winners||[pendingWin.winner],pendingWin.from,pendingWin.tile,"自家 和了");
 }
-function claimTsumo(){if(!pendingWin||pendingWin.type!=="tsumo"||pendingWin.winner!==PLAYER_SEAT){alert("ツモ和了できる状態ではありません");return;}finishAgari("自家 和了");}
+function claimTsumo(){if(!pendingWin||pendingWin.type!=="tsumo"||pendingWin.winner!==PLAYER_SEAT){alert("ツモ和了できる状態ではありません");return;}showCall("ツモ","tsumo");finishAgari("自家 和了");}
 function skipRon(){
   if(!pendingWin||pendingWin.type!=="ron"){return;}
   if(!pendingWin.skippable){alert("リーチ後は見逃しできません。ロンしてください。");return;}
@@ -1261,6 +1289,7 @@ function canDeclareRiichi(seat=PLAYER_SEAT){
 function declareRiichi(){
   const res=canDeclareRiichi(PLAYER_SEAT);
   if(!res.ok){alert("リーチできません："+res.reason);return;}
+  showCall("リーチ","riichi");
   gameState.riichi[PLAYER_SEAT]=true;
   gameState.pendingRiichiDiscard=PLAYER_SEAT;
   gameState.deposit+=1;
@@ -1276,7 +1305,7 @@ function counts(){return hand.reduce((acc,t)=>{acc[t]=(acc[t]||0)+1;return acc;}
 function canRevealKanDora(){return doraIndicators.length<MAX_DORA_INDICATORS && wall.length>=2 && rinshanPile.length>0;}
 function getKanChoices(){const c=counts();const choices=[];if(!canRevealKanDora()||!TurnManager.isPlayer()||!canDiscard)return choices;Object.keys(c).forEach(t=>{if(!FLOWERS.has(t)&&c[t]>=4)choices.push({kind:"暗槓",tile:t});});melds.forEach((m,idx)=>{if(m.type==="ポン"&&!FLOWERS.has(m.tile)&&c[m.tile]>=1)choices.push({kind:"加槓",tile:m.tile,meldIndex:idx});});return choices;}
 function openKanChoices(){const choices=getKanChoices();if(!choices.length){alert("カンできる牌がありません");return;}if(choices.length===1){executeKan(choices[0]);return;}const text=choices.map((c,i)=>`${i+1}: ${c.kind} ${c.tile}`).join("\n");const n=Number(prompt("どのカンをしますか？\n"+text));if(n>=1&&n<=choices.length)executeKan(choices[n-1]);}
-function executeKan(choice){if(!canRevealKanDora()){alert("カンドラを新たにめくれないためカンできません");return;}revealKanDora();if(choice.kind==="暗槓"){let removed=0;hand=hand.filter(t=>{if(t===choice.tile&&removed<4){removed++;return false;}return true;});gameState.hands[PLAYER_SEAT]=hand;bindPlayerAliases();melds.push({type:"暗槓",tile:choice.tile,tiles:[choice.tile,choice.tile,choice.tile,choice.tile]});log("暗槓："+choice.tile);}else if(choice.kind==="加槓"){const idx=hand.indexOf(choice.tile);if(idx>=0)hand.splice(idx,1);const meld=melds[choice.meldIndex];meld.type="加槓";meld.tiles=[choice.tile,choice.tile,choice.tile,choice.tile];log("加槓："+choice.tile);}rinshanDraw();sortHand();canDiscard=true;GameController.setPhase(GamePhase.ACTION);render();}
+function executeKan(choice){showCall("カン","kan");if(!canRevealKanDora()){alert("カンドラを新たにめくれないためカンできません");return;}revealKanDora();if(choice.kind==="暗槓"){let removed=0;hand=hand.filter(t=>{if(t===choice.tile&&removed<4){removed++;return false;}return true;});gameState.hands[PLAYER_SEAT]=hand;bindPlayerAliases();melds.push({type:"暗槓",tile:choice.tile,tiles:[choice.tile,choice.tile,choice.tile,choice.tile]});log("暗槓："+choice.tile);}else if(choice.kind==="加槓"){const idx=hand.indexOf(choice.tile);if(idx>=0)hand.splice(idx,1);const meld=melds[choice.meldIndex];meld.type="加槓";meld.tiles=[choice.tile,choice.tile,choice.tile,choice.tile];log("加槓："+choice.tile);}rinshanDraw();sortHand();canDiscard=true;GameController.setPhase(GamePhase.ACTION);render();}
 function revealKanDora(){
   const dora=wall.pop();const ura=wall.pop();
   if(dora)doraIndicators.push(dora);if(ura)uraIndicators.push(ura);
