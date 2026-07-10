@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西三麻 試作 v0.3.13-5</title>
+<title>関西三麻 試作 v0.3.14-1</title>
 <style>
 :root{--table:#0b6b32;--panel:#063f25;--panel2:#092b1b;--gold:#d8b35a;--danger:#b43b32;--tile-w:48px;--tile-h:64px}
 *{box-sizing:border-box}
@@ -38,10 +38,12 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
 .result-score-note{font-size:12px;color:#ccd6cf;margin-top:10px}
 
 .stats-modal{position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center;padding:24px}.stats-modal[hidden]{display:none}.stats-card{width:min(1000px,96vw);max-height:88vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.55);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.55);text-align:left}.stats-head{display:flex;justify-content:space-between;align-items:center;gap:16px}.stats-head h2{margin:0;color:#ffe49a}.stats-summary{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;margin:16px 0}.stats-box{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px}.stats-box b{display:block;color:#ffe49a;font-size:20px}.stats-table{width:100%;border-collapse:collapse;margin-top:8px}.stats-table th,.stats-table td{border:1px solid rgba(255,255,255,.12);padding:8px}.stats-table th{background:rgba(216,179,90,.14);color:#ffe49a}.stats-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.stats-empty{color:#ccd6cf;padding:12px 0}.stats-section{margin-top:18px}.stats-section h3{margin:0 0 8px;color:#ffe49a}@media(max-width:720px){.stats-summary{grid-template-columns:repeat(2,1fr)}}
+
+.replay-modal{position:fixed;inset:0;z-index:10030;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px}.replay-modal[hidden]{display:none}.replay-card{width:min(1100px,97vw);max-height:92vh;overflow:auto;background:#092b1b;border:1px solid rgba(216,179,90,.6);border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.58);text-align:left}.replay-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.replay-head h2{margin:0;color:#ffe49a}.replay-meta{margin:10px 0;color:#e8d79b}.replay-controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.replay-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.replay-seat{background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px}.replay-seat h3{margin:0 0 6px;color:#ffe49a}.replay-tiles{display:flex;flex-wrap:wrap;gap:4px}.replay-event-list{max-height:180px;overflow:auto;background:rgba(0,0,0,.22);border-radius:8px;padding:8px;margin-top:12px;font-size:13px}.replay-event-list .active{color:#ffe49a;font-weight:800}.replay-empty{padding:18px;color:#ccd6cf}@media(max-width:760px){.replay-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><h1>関西三麻 試作</h1><div class="version">v0.3.13-5 / HTML + CSS + JavaScript</div></header>
+<header><h1>関西三麻 試作</h1><div class="version">v0.3.14-1 / HTML + CSS + JavaScript</div></header>
 <main>
   <section class="status">
     <div class="panel info">
@@ -119,6 +121,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
       <button id="debugAiButton" class="btn btn-debug-warn" onclick="toggleDebugAiPause()">AI停止</button>
       <button id="soundButton" class="btn" onclick="toggleSound()">効果音 ON</button>
       <button id="restartMatchButton" class="btn btn-primary" onclick="restartMatch()">対局を最初から</button>
+      <button class="btn btn-debug" onclick="openReplayViewer()">リプレイ</button>
       <button class="btn" onclick="newGame()">現在局を作り直す</button>
       <div class="debug-line">確認用：嶺上8枚（4トン）・カンドラ不可時カン禁止</div>
     </div>
@@ -193,6 +196,15 @@ main{padding:18px;max-width:1280px;margin:0 auto}.status{display:grid;grid-templ
     <div class="note">この画面は開発確認用です。保存形式v2では和了履歴を個別イベントとして保持し、役別のロン・ツモ回数、平均翻、平均打点を追加できます。将来のプレミアム機能では期間・局風・親子・待ち・ドラ構成などの分析を拡張できます。</div>
   </div>
 </div>
+
+<div id="replayModal" class="replay-modal" hidden>
+  <div class="replay-card">
+    <div class="replay-head"><h2>対局リプレイ</h2><button class="btn" onclick="closeReplayViewer()">閉じる</button></div>
+    <div id="replayMeta" class="replay-meta"></div>
+    <div class="replay-controls"><button class="btn" onclick="replayFirst()">最初</button><button class="btn" onclick="replayPrev()">前へ</button><button id="replayPlayButton" class="btn btn-primary" onclick="toggleReplayPlay()">再生</button><button class="btn" onclick="replayNext()">次へ</button><button class="btn" onclick="replayLast()">最後</button></div>
+    <div id="replayStage"></div><div id="replayEventList" class="replay-event-list"></div>
+  </div>
+</div>
 <div id="callOverlay" class="call-overlay" aria-live="polite" aria-atomic="true"><div id="callText" class="call-text"></div></div>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
@@ -262,6 +274,7 @@ function playSound(kind){
 }
 function toggleSound(){soundEnabled=!soundEnabled;const b=document.getElementById("soundButton");if(b)b.textContent=soundEnabled?"効果音 ON":"効果音 OFF";if(soundEnabled){ensureAudioContext();playSound("draw");}log(soundEnabled?"効果音を有効にしました":"効果音を無効にしました");}
 function showCall(text,kind=""){
+  if(currentReplay&&gameState)recordReplayEvent("call",text,{kind});
   const overlay=document.getElementById("callOverlay");
   const label=document.getElementById("callText");
   if(!overlay||!label)return;
@@ -275,6 +288,24 @@ function showCall(text,kind=""){
   callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
 }
 
+
+const REPLAY_STORAGE_KEY="ksb_replay_history_v1";
+const REPLAY_SCHEMA_VERSION=1;
+let activeReplay=null,replayIndex=0,replayTimer=null,currentReplay=null;
+function cloneReplayValue(v){return JSON.parse(JSON.stringify(v));}
+function replaySnapshot(){return {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:!!gameState.returnEast,honba:gameState.honba,deposit:gameState.deposit,dealer:gameState.dealer,currentSeat:gameState.currentSeat,phase:gameState.phase,points:cloneReplayValue(gameState.points),hands:cloneReplayValue(gameState.hands),rivers:cloneReplayValue(gameState.rivers),melds:cloneReplayValue(gameState.melds),flowers:cloneReplayValue(gameState.flowers),riichi:cloneReplayValue(gameState.riichi),doraIndicators:cloneReplayValue(doraIndicators),uraIndicators:cloneReplayValue(uraIndicators||[]),wallRemaining:wall.length,rinshanRemaining:rinshan.length};}
+function beginReplayRecording(){if(!currentReplay||currentReplay.endedAt){currentReplay={schemaVersion:REPLAY_SCHEMA_VERSION,id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,startedAt:new Date().toISOString(),endedAt:null,events:[],result:null};}recordReplayEvent("round_start",`${roundLabelText()} 開始`);}
+function recordReplayEvent(type,label,extra={}){if(!currentReplay||!gameState)return;currentReplay.events.push({seq:currentReplay.events.length,time:Date.now(),type,label,extra:cloneReplayValue(extra),state:replaySnapshot()});}
+function loadReplayHistory(){try{return JSON.parse(localStorage.getItem(REPLAY_STORAGE_KEY)||"[]");}catch(e){return [];}}
+function saveReplayHistory(){if(!currentReplay||!currentReplay.events.length)return;currentReplay.endedAt=new Date().toISOString();currentReplay.result=gameState.matchResult?cloneReplayValue(gameState.matchResult):null;const history=loadReplayHistory();const idx=history.findIndex(x=>x.id===currentReplay.id);if(idx>=0)history[idx]=currentReplay;else history.push(currentReplay);localStorage.setItem(REPLAY_STORAGE_KEY,JSON.stringify(history.slice(-20)));}
+function latestReplay(){const h=loadReplayHistory();return currentReplay&&currentReplay.events.length?currentReplay:(h.length?h[h.length-1]:null);}
+function openReplayViewer(){activeReplay=latestReplay();replayIndex=0;document.getElementById("replayModal").hidden=false;renderReplayFrame();}
+function closeReplayViewer(){stopReplayPlay();document.getElementById("replayModal").hidden=true;}
+function stopReplayPlay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}const b=document.getElementById("replayPlayButton");if(b)b.textContent="再生";}
+function toggleReplayPlay(){if(!activeReplay||!activeReplay.events.length)return;if(replayTimer){stopReplayPlay();return;}const b=document.getElementById("replayPlayButton");if(b)b.textContent="停止";replayTimer=setInterval(()=>{if(replayIndex>=activeReplay.events.length-1){stopReplayPlay();return;}replayIndex++;renderReplayFrame();},700);}
+function replayFirst(){stopReplayPlay();replayIndex=0;renderReplayFrame();}function replayLast(){stopReplayPlay();if(activeReplay)replayIndex=Math.max(0,activeReplay.events.length-1);renderReplayFrame();}function replayPrev(){stopReplayPlay();replayIndex=Math.max(0,replayIndex-1);renderReplayFrame();}function replayNext(){stopReplayPlay();if(activeReplay)replayIndex=Math.min(activeReplay.events.length-1,replayIndex+1);renderReplayFrame();}
+function replayTileContainer(tiles){const box=document.createElement("div");box.className="replay-tiles";(tiles||[]).forEach(t=>box.appendChild(tileNode(tileValue(t),"tile small locked")));return box;}
+function renderReplayFrame(){const meta=document.getElementById("replayMeta"),stage=document.getElementById("replayStage"),list=document.getElementById("replayEventList");if(!activeReplay||!activeReplay.events.length){meta.textContent="保存された牌譜はありません";stage.innerHTML='<div class="replay-empty">対局を進めるとイベント列として保存されます。</div>';list.innerHTML="";return;}replayIndex=Math.max(0,Math.min(replayIndex,activeReplay.events.length-1));const e=activeReplay.events[replayIndex],st=e.state;meta.textContent=`${replayIndex+1}/${activeReplay.events.length}　${e.label}　${st.returnEast?"返り東 ":""}${st.roundWind}${st.handNumber}局 ${st.honba}本場　山${st.wallRemaining}　供託${st.deposit}`;stage.innerHTML="";const grid=document.createElement("div");grid.className="replay-grid";SEATS.forEach(seat=>{const card=document.createElement("div");card.className="replay-seat";const h=document.createElement("h3");h.textContent=`${SEAT_LABELS[seat]} ${formatPoints(st.points[seat])}点${st.riichi[seat]?" / リーチ":""}`;card.appendChild(h);card.appendChild(replayTileContainer(st.hands[seat]));const f=document.createElement("div");f.className="note";f.textContent="抜き花";card.appendChild(f);card.appendChild(replayTileContainer(st.flowers[seat]));const m=document.createElement("div");m.className="note";m.textContent="副露";card.appendChild(m);card.appendChild(replayTileContainer((st.melds[seat]||[]).flatMap(x=>x.tiles||[])));const r=document.createElement("div");r.className="note";r.textContent="河";card.appendChild(r);card.appendChild(replayTileContainer(st.rivers[seat]));grid.appendChild(card);});const d=document.createElement("div");d.className="replay-seat";const dh=document.createElement("h3");dh.textContent="ドラ表示";d.appendChild(dh);d.appendChild(replayTileContainer(st.doraIndicators));grid.appendChild(d);stage.appendChild(grid);list.innerHTML=activeReplay.events.map((x,i)=>`<div class="${i===replayIndex?'active':''}">${i+1}. ${x.label}</div>`).join("");const active=list.children[replayIndex];if(active)active.scrollIntoView({block:"nearest"});}
 const PROFILE_STORAGE_KEY="ksb.profileStats";
 const PROFILE_SCHEMA_VERSION=2;
 function emptySeatCounter(){return {east:0,south:0,west:0};}
@@ -629,6 +660,7 @@ function detailedMatchResultText(){
   return `${rows.join(" / ")} ｜ 終了理由：${gameState.matchResult.reason}`;
 }
 function restartMatch(){
+  if(currentReplay&&currentReplay.events.length){recordReplayEvent("restart","対局を最初から");saveReplayHistory();}
   clearAiTimer();
   pendingWin=null;
   riichiDeclared=false;
@@ -650,6 +682,8 @@ function finishMatch(reason){
   if(busted){const stats=ensureStats();stats.busted[busted]=(stats.busted[busted]||0)+1;}
   gameState.matchResult=makeMatchResult(reason);
   persistCompletedMatch();
+  recordReplayEvent("match_end",`対局終了：${reason}`);
+  saveReplayHistory();
   log(`対局終了：${reason} / ${matchResultText()}`);
 }
 
@@ -730,7 +764,8 @@ const GameController={
     pendingWin=null;
     canDiscard=false;
     lastDraw=null;
-    log(`v0.3.13-3：${roundLabelText()} ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
+    beginReplayRecording();
+    log(`v0.3.14-1：${roundLabelText()} ${gameState.honba}本場 / 親${SEAT_LABELS[gameState.dealer]}で開始しました`);
     render();
     scheduleCurrentTurnDraw();
   },
@@ -746,6 +781,7 @@ const GameController={
     canDiscard=true;
     this.setPhase(GamePhase.ACTION);
     log(`${SEAT_LABELS[seat]} ツモ：${TurnManager.isPlayer()?t:"牌"}`);
+    recordReplayEvent("draw",`${SEAT_LABELS[seat]} ツモ`,{seat,tile:t});
     playSound("draw");
     if(!TurnManager.isPlayer()){
       autoNukiFlowersForSeat(seat);
@@ -788,6 +824,7 @@ const GameController={
     canDiscard=false;
     this.setPhase(GamePhase.DISCARD);
     log(`${SEAT_LABELS[seat]} 打牌：${TurnManager.isPlayer()?t:"牌"}`);
+    recordReplayEvent(commitsRiichi?"riichi_discard":"discard",`${SEAT_LABELS[seat]} ${commitsRiichi?"リーチ打牌":"打牌"} ${t}`,{seat,tile:t,riichi:commitsRiichi});
     if(handleClaimsAfterDiscard(seat,t)){render();return true;}
     if(gameState.pendingSuukan){
       gameState.pendingSuukan=false;
@@ -816,6 +853,8 @@ const GameController={
     gameState.nextRound=makeNextRoundCarryAfterRyukyoku(map);
     gameState.gameEnded=true;
     const dealerText=map[gameState.dealer]?"親テンパイ連荘":"親ノーテン親流れ";
+    recordReplayEvent("ryukyoku","流局",{tenpaiMap:map,deltas});
+    saveReplayHistory();
     log(`流局：${ryukyokuTenpaiText(map)} / ${dealerText} / ノーテン罰符 ${deltaSummary(deltas)}`);
     if(finishForBustIfNeeded("ノーテン罰符")){render();return;}
     if(gameState.nextRound){
