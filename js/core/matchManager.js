@@ -156,3 +156,23 @@ function makeNextRoundCarryAfterRyukyoku(tenpaiMap=null){
     points:Object.assign({},gameState.points), stats:JSON.parse(JSON.stringify(ensureStats())), ryukyokuDealerTenpai:dealerTenpai
   };
 }
+
+function dealAllPlayers(){SEATS.forEach(seat=>{gameState.hands[seat]=[];gameState.rivers[seat]=[];gameState.melds[seat]=[];gameState.flowers[seat]=[];});for(let i=0;i<13;i++){SEATS.forEach(seat=>gameState.hands[seat].push(wall.pop()));}SEATS.forEach(sortSeatHand);canDiscard=false;lastDraw=null;}
+function newGame(){GameController.startRound();}
+function startNextRound(){
+  if(!gameState.nextRound){alert("次局へ進める状態ではありません");return;}
+  const carry=gameState.nextRound;
+  GameController.startRound(carry);
+}
+function restartMatch(){
+  if(currentReplay&&currentReplay.events.length){recordReplayEvent("restart","対局を最初から");saveReplayHistory();}
+  clearAiTimer();
+  pendingWin=null;
+  riichiDeclared=false;
+  debugAiPaused=false;
+  gameState=createInitialGameState();
+  bindPlayerAliases();
+  newGame();
+  log("新しい対局を開始しました：東1局・全員35000点");
+  render();
+}
