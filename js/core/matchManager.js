@@ -71,11 +71,12 @@ function advanceRoundPosition(roundWind, handNumber, returnEast=false){
 }
 
 function isSouthAllLast(){return !gameState.returnEast&&gameState.roundWind===FINAL_ROUND_WIND&&gameState.handNumber===FINAL_HAND_NUMBER;}
-function hasPlayerOverReturnPoint(){return SEATS.some(seat=>gameState.points[seat]>40000);}
+function topPlayerPoints(){return Math.max(...SEATS.map(seat=>gameState.points[seat]));}
+function hasPlayerOverReturnPoint(){return topPlayerPoints()>=40000;}
 function shouldEndMatchAfterHand(dealerContinues){
-  // 返り東は、局終了時点で誰かが40000点を超えたら終了。
+  // 返り東は、局終了時点で1位が40000点以上なら終了。未満なら返り東継続。
   if(gameState.returnEast&&hasPlayerOverReturnPoint())return true;
-  // 南3局は、親が流れた時点で40000点超えがいれば終了。いなければ返り東へ。
+  // 南3局で親が継続しない場合、1位が40000点以上なら終了。未満なら返り東へ。
   if(isSouthAllLast()&&!dealerContinues&&hasPlayerOverReturnPoint())return true;
   return false;
 }
