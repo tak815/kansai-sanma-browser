@@ -711,6 +711,10 @@ function syncDrawActionButton(){
   const db=document.getElementById("drawButton");if(db){db.disabled=!(gameState.started&&TurnManager.isPlayer()&&!canDiscard&&!pendingWin&&gameState.phase===GamePhase.DRAW);db.title=autoTurnProgress?"通常は自動ツモします。停止時の予備操作です":"手動ツモ";}
 }
 
+function syncUtilityActionButtons(){
+  const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";
+}
+
 function renderDebugPanel(){document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;}
 
 function renderRoundStatus(){
@@ -736,7 +740,7 @@ function renderMatchHud(){
 }
 
 function renderActionButtons(){
-  syncRiichiActionButton();syncWinActionButtons();syncMatchFlowActionButtons();syncDrawActionButton();const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";
+  syncRiichiActionButton();syncWinActionButtons();syncMatchFlowActionButtons();syncDrawActionButton();syncUtilityActionButtons();
 }
 
 function renderDoraIndicators(){
