@@ -194,6 +194,7 @@
 <script src="./js/replay/replayManager.js"></script>
 <script src="./js/spectator/spectatorManager.js"></script>
 <script src="./js/core/gameController.js"></script>
+<script src="./js/core/matchManager.js"></script>
 <script src="./js/ai/aiManager.js"></script>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
@@ -204,8 +205,6 @@ const SEATS=["east","south","west"];
 const PLAYER_SEAT="east";
 const SEAT_LABELS={east:"自家",south:"南家",west:"西家"};
 const MAX_DORA_INDICATORS=5;
-const FINAL_ROUND_WIND="南";
-const FINAL_HAND_NUMBER=3;
 
 const order={};let orderNo=1;["1m","9m"].forEach(t=>order[t]=orderNo++);for(let i=1;i<=9;i++)order[i+"p"]=orderNo++;for(let i=1;i<=9;i++)order[i+"s"]=orderNo++;["東","南","西","北","白","發","中","春","夏","秋","冬"].forEach(t=>order[t]=orderNo++);
 const DORA_NEXT={"1m":"9m","9m":"1m","1p":"2p","2p":"3p","3p":"4p","4p":"5p","5p":"6p","6p":"7p","7p":"8p","8p":"9p","9p":"1p","1s":"2s","2s":"3s","3s":"4s","4s":"5s","5s":"6s","6s":"7s","7s":"8s","8s":"9s","9s":"1s","東":"南","南":"西","西":"北","北":"東","白":"發","發":"中","中":"白"};
@@ -228,88 +227,7 @@ function showCall(text,kind=""){
   callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
 }
 
-function createInitialGameState(){
-  return {
-    version:"v0.3.13-6",
-    roundWind:"東",
-    handNumber:1,
-    returnEast:false,
-    honba:0,
-    deposit:0,
-    dealer:"east",
-    currentSeat:"east",
-    turnIndex:0,
-    phase:GamePhase.INIT,
-    turnCount:0,
-    started:false,
-    hands:{east:[],south:[],west:[]},
-    rivers:{east:[],south:[],west:[]},
-    melds:{east:[],south:[],west:[]},
-    flowers:{east:[],south:[],west:[]},
-    riichi:{east:false,south:false,west:false},
-    pendingRiichiDiscard:null,
-    furiten:{east:false,south:false,west:false},
-    points:{east:35000,south:35000,west:35000},
-    lastSettlement:null,
-    nextRound:null,
-    gameEnded:false,
-    matchResult:null,
-    kanCount:0,
-    pendingSuukan:false,
-    agariYameAvailable:false,
-    agariYameWinner:null,
-    stats:createMatchStats()
-  };
-}
-
-function carryIntoNewGameState(carry){
-  const next=createInitialGameState();
-  if(!carry)return next;
-  next.roundWind=carry.roundWind || next.roundWind;
-  next.handNumber=carry.handNumber || next.handNumber;
-  next.returnEast=!!carry.returnEast;
-  next.honba=carry.honba || 0;
-  next.deposit=carry.deposit || 0;
-  next.dealer=carry.dealer || next.dealer;
-  next.currentSeat=next.dealer;
-  next.turnIndex=SEATS.indexOf(next.currentSeat);
-  next.points=Object.assign({}, carry.points || next.points);
-  if(carry.stats)next.stats=normalizeMatchStats(carry.stats);
-  return next;
-}
-
-function nextSeatOf(seat){return SEATS[(SEATS.indexOf(seat)+1)%SEATS.length] || "east";}
-function advanceRoundPosition(roundWind, handNumber, returnEast=false){
-  let h=handNumber+1;
-  let w=roundWind;
-  let returning=!!returnEast;
-  if(h>3){
-    h=1;
-    if(returning){
-      w="東"; // 返り東は誰かが40000点を超えるまで東1〜3局を循環
-    }else if(roundWind==="東"){
-      w="南"; // 東3局終了後は南1局
-    }else{
-      w="東";
-      returning=true; // 南3局終了時に40000点超えがいなければ返り東
-    }
-  }
-  return {roundWind:w,handNumber:h,returnEast:returning};
-}
-
-function isSouthAllLast(){return !gameState.returnEast&&gameState.roundWind===FINAL_ROUND_WIND&&gameState.handNumber===FINAL_HAND_NUMBER;}
-function hasPlayerOverReturnPoint(){return SEATS.some(seat=>gameState.points[seat]>40000);}
 function roundLabelText(state=gameState){return `${state.returnEast?"返り東":""}${state.roundWind}${state.handNumber}局`;}
-function shouldEndMatchAfterHand(dealerContinues){
-  // 返り東は、局終了時点で誰かが40000点を超えたら終了。
-  if(gameState.returnEast&&hasPlayerOverReturnPoint())return true;
-  // 南3局は、親が流れた時点で40000点超えがいれば終了。いなければ返り東へ。
-  if(isSouthAllLast()&&!dealerContinues&&hasPlayerOverReturnPoint())return true;
-  return false;
-}
-function getBustedSeat(){return SEATS.find(seat=>gameState.points[seat]<=0)||null;}
-function isTopSeat(seat){const max=Math.max(...SEATS.map(s=>gameState.points[s]));return gameState.points[seat]===max;}
-function canOfferAgariYame(winner){return isSouthAllLast()&&winner===gameState.dealer&&isTopSeat(winner);}
 function clearAgariYameChoice(){gameState.agariYameAvailable=false;gameState.agariYameWinner=null;}
 function finishForBustIfNeeded(extraReason=""){
   const busted=getBustedSeat();
@@ -368,13 +286,6 @@ function renderMatchResultPanel(){
   });
 }
 
-function makeMatchResult(reason){
-  const ranked=SEATS.slice().sort((a,b)=>{
-    const diff=gameState.points[b]-gameState.points[a];
-    return diff!==0?diff:SEATS.indexOf(a)-SEATS.indexOf(b);
-  });
-  return {reason,ranking:ranked.map((seat,index)=>({rank:index+1,seat,points:gameState.points[seat]}))};
-}
 function matchResultText(){
   if(!gameState.matchResult)return "対局中";
   return gameState.matchResult.ranking.map(x=>`${x.rank}位 ${SEAT_LABELS[x.seat]} ${formatPoints(x.points)}点`).join(" / ");
@@ -413,32 +324,6 @@ function finishMatch(reason){
   log(`対局終了：${reason} / ${matchResultText()}`);
 }
 
-function makeNextRoundCarryAfterAgari(win){
-  const dealerWon=win.winner===gameState.dealer;
-  if(shouldEndMatchAfterHand(dealerWon))return null;
-  const pos=dealerWon
-    ? {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:gameState.returnEast}
-    : advanceRoundPosition(gameState.roundWind,gameState.handNumber,gameState.returnEast);
-  return {
-    roundWind:pos.roundWind, handNumber:pos.handNumber, returnEast:!!pos.returnEast,
-    honba:dealerWon?(gameState.honba+1):0, deposit:0,
-    dealer:dealerWon?gameState.dealer:nextSeatOf(gameState.dealer),
-    points:Object.assign({},gameState.points), stats:JSON.parse(JSON.stringify(ensureStats()))
-  };
-}
-function makeNextRoundCarryAfterRyukyoku(tenpaiMap=null){
-  const dealerTenpai=tenpaiMap ? !!tenpaiMap[gameState.dealer] : true;
-  if(shouldEndMatchAfterHand(dealerTenpai))return null;
-  const pos=dealerTenpai
-    ? {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:gameState.returnEast}
-    : advanceRoundPosition(gameState.roundWind,gameState.handNumber,gameState.returnEast);
-  return {
-    roundWind:pos.roundWind, handNumber:pos.handNumber, returnEast:!!pos.returnEast,
-    honba:(gameState.honba||0)+1, deposit:gameState.deposit||0,
-    dealer:dealerTenpai?gameState.dealer:nextSeatOf(gameState.dealer),
-    points:Object.assign({},gameState.points), stats:JSON.parse(JSON.stringify(ensureStats())), ryukyokuDealerTenpai:dealerTenpai
-  };
-}
 function currentTenpaiMap(){
   const map={};
   SEATS.forEach(seat=>{
