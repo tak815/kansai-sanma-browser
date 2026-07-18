@@ -655,6 +655,9 @@ function renderPlayerHand(){
     h.appendChild(tileNode(view.drawn.tile,"tile drawn-tile",()=>discard(view.drawn.index)));
   }
 }
+function renderPlayerRiver(){
+  const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(riverTileNode(t)));
+}
 function renderPlayerMelds(){
   const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});
 }
@@ -714,7 +717,7 @@ function renderDoraIndicators(){
 }
 
 function renderBoard(){
-  renderPlayerHand();const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(riverTileNode(t)));renderSeatRiver(document.getElementById("riverSouth"),gameState.rivers.south,"south");renderSeatRiver(document.getElementById("riverWest"),gameState.rivers.west,"west");const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}renderPlayerMelds();const flowerAvailable=TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0;const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!flowerAvailable;const nfb=document.getElementById("normalFlowerButton");if(nfb){nfb.disabled=!flowerAvailable;nfb.classList.toggle("available",flowerAvailable);nfb.title=flowerAvailable?"手牌の花牌を抜き、嶺上牌から補充します":"現在は抜き花できません";}const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");syncNormalActionButtons();
+  renderPlayerHand();renderPlayerRiver();renderSeatRiver(document.getElementById("riverSouth"),gameState.rivers.south,"south");renderSeatRiver(document.getElementById("riverWest"),gameState.rivers.west,"west");const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}renderPlayerMelds();const flowerAvailable=TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0;const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!flowerAvailable;const nfb=document.getElementById("normalFlowerButton");if(nfb){nfb.disabled=!flowerAvailable;nfb.classList.toggle("available",flowerAvailable);nfb.title=flowerAvailable?"手牌の花牌を抜き、嶺上牌から補充します":"現在は抜き花できません";}const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");syncNormalActionButtons();
 }
 function render(){bindPlayerAliases();renderProfile();renderRoundStatus();renderDoraSummary();renderTurnStatus();renderDebugPanel();renderMatchHud();updateShantenDebug();updateYakuDebug(pendingWin);renderActionButtons();renderDoraIndicators();renderBoard();}
 
