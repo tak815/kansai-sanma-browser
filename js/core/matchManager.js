@@ -116,6 +116,7 @@ function makeMatchResult(reason){
 }
 
 function finishMatch(reason){
+  if(gameState.matchResult)return;
   clearAgariYameChoice();
   gameState.nextRound=null;
   gameState.gameEnded=true;
