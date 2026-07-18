@@ -192,6 +192,7 @@
 <script src="./js/audio/soundManager.js"></script>
 <script src="./js/stats/statsManager.js"></script>
 <script src="./js/replay/replayManager.js"></script>
+<script src="./js/spectator/spectatorManager.js"></script>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
 for(let i=1;i<=9;i++){imageMap[i+"p"]=i+"p.png";imageMap[i+"s"]=i+"s.png";}
@@ -228,15 +229,6 @@ function showCall(text,kind=""){
   callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
 }
 
-const SPECTATOR_FEED_ENDPOINT=null;
-let spectatorMatches=[];
-function buildLocalSpectatorMatches(){const history=loadReplayHistory();return history.slice().reverse().map((replay,index)=>{const averageRate=2050+((history.length-index)%8)*50;return {id:replay.id,replay,averageRate,players:[`東家 R${averageRate+35}`,`南家 R${averageRate}`,`西家 R${averageRate-40}`],status:replay.result?"対局終了":"対局中",startedAt:replay.startedAt,eventCount:(replay.events||[]).length};});}
-async function loadSpectatorMatches(){if(SPECTATOR_FEED_ENDPOINT){try{const response=await fetch(SPECTATOR_FEED_ENDPOINT,{cache:"no-store"});if(!response.ok)throw new Error("feed");const data=await response.json();if(Array.isArray(data.matches))return data.matches;}catch(error){console.warn("観戦フィードを取得できません",error);}}return buildLocalSpectatorMatches();}
-async function refreshSpectatorMatches(){spectatorMatches=await loadSpectatorMatches();renderSpectatorLobby();}
-function openSpectatorLobby(){document.getElementById("spectatorModal").hidden=false;refreshSpectatorMatches();}
-function closeSpectatorLobby(){document.getElementById("spectatorModal").hidden=true;}
-function renderSpectatorLobby(){const list=document.getElementById("spectatorMatchList");if(!list)return;const minRate=Math.max(0,Number((document.getElementById("spectatorMinRate")||{}).value)||0);const matches=spectatorMatches.filter(m=>(Number(m.averageRate)||0)>=minRate);if(!matches.length){list.innerHTML='<div class="spectator-empty">条件に合う観戦可能な対局はありません。数巡進めて牌譜を保存すると開発プレビューに表示されます。</div>';return;}list.innerHTML=matches.map(m=>{const when=new Date(m.startedAt);const time=Number.isNaN(when.getTime())?"時刻不明":when.toLocaleString();return `<div class="spectator-match"><div><h3>平均レート ${m.averageRate}<span class="spectator-badge">${m.status}</span></h3><p>${(m.players||[]).join(" / ")}</p><p>${time}　${m.eventCount||0}イベント</p></div><button class="btn btn-primary" onclick="watchSpectatorMatch('${m.id}')">観戦する</button></div>`;}).join("");}
-function watchSpectatorMatch(id){const match=spectatorMatches.find(m=>m.id===id);if(!match||!match.replay)return;const delay=Math.max(60,Number((document.getElementById("spectatorLobbyDelay")||{}).value)||120);activeReplay=normalizeReplay(cloneReplayValue(match.replay));if(!activeReplay)return;activeReplay.source="spectator_preview";activeReplay.visibilityMode="hidden";activeReplay.spectatorDelaySeconds=delay;activeReplay.viewerSeat=null;replayIndex=0;replayVisibilityMode="hidden";replayDelaySeconds=delay;closeSpectatorLobby();document.getElementById("replayModal").hidden=false;refreshReplayHistorySelect();syncReplayPrivacyControls();renderReplayFrame();}
 function createInitialGameState(){
   return {
     version:"v0.3.13-6",
