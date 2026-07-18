@@ -15,6 +15,7 @@
     <div class="hud-seat south"><span>南家</span><b id="hudSouthPoints">35,000</b></div>
     <div class="hud-seat east"><span>自家</span><b id="hudEastPoints">35,000</b></div>
   </section>
+  <div class="game-top-area">
   <section class="status">
     <div class="panel info">
       <div>局：<b id="roundLabel">東1局</b></div>
@@ -40,6 +41,7 @@
       <div class="debug-info-row">リーチ：<b id="riichiStateDebug">なし</b></div>
       <div class="debug-info-row">CPU判断：<b id="cpuDecisionDebug">待機中</b></div>
     </div>
+  </section>
     <div class="panel controls" id="mainControls">
       <div id="normalActionGuide" class="normal-action-guide" aria-live="polite"></div>
       <button id="drawButton" class="btn btn-primary" onclick="drawTile()">ツモ / 進行（予備）</button>
@@ -97,8 +99,10 @@
       <button class="btn" onclick="newGame()">現在局を作り直す</button>
       <div class="debug-line">確認用：嶺上8枚（4トン）・カンドラ不可時カン禁止</div>
     </div>
+  <section class="status">
     <div class="panel log" id="log"></div>
   </section>
+  </div>
 
   <section class="layout game-table-layout">
     <div class="panel table-center-panel">
