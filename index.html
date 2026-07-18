@@ -707,6 +707,10 @@ function syncRiichiActionButton(){
   const rb=document.getElementById("riichiButton");if(rb){const selecting=gameState.pendingRiichiDiscard===PLAYER_SEAT&&!gameState.riichi[PLAYER_SEAT];const cr=canDeclareRiichi(PLAYER_SEAT);rb.disabled=selecting?false:!cr.ok;rb.title=selecting?"リーチ選択をキャンセル":cr.reason;rb.textContent=selecting?"リーチ取消":"リーチ";}
 }
 
+function syncDrawActionButton(){
+  const db=document.getElementById("drawButton");if(db){db.disabled=!(gameState.started&&TurnManager.isPlayer()&&!canDiscard&&!pendingWin&&gameState.phase===GamePhase.DRAW);db.title=autoTurnProgress?"通常は自動ツモします。停止時の予備操作です":"手動ツモ";}
+}
+
 function renderDebugPanel(){document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;}
 
 function renderRoundStatus(){
@@ -732,7 +736,7 @@ function renderMatchHud(){
 }
 
 function renderActionButtons(){
-  syncRiichiActionButton();syncWinActionButtons();syncMatchFlowActionButtons();const db=document.getElementById("drawButton");if(db){db.disabled=!(gameState.started&&TurnManager.isPlayer()&&!canDiscard&&!pendingWin&&gameState.phase===GamePhase.DRAW);db.title=autoTurnProgress?"通常は自動ツモします。停止時の予備操作です":"手動ツモ";}const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";
+  syncRiichiActionButton();syncWinActionButtons();syncMatchFlowActionButtons();syncDrawActionButton();const aiBtn=document.getElementById("debugAiButton");if(aiBtn)aiBtn.textContent=debugAiPaused?"AI再開":"AI停止";const soundBtn=document.getElementById("soundButton");if(soundBtn)soundBtn.textContent=soundEnabled?"効果音 ON":"効果音 OFF";
 }
 
 function renderDoraIndicators(){
