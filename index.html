@@ -608,7 +608,6 @@ function renderSeatRiver(container,entries,seat){
   container.appendChild(grid);
 }
 function tileNode(t,cls="tile",onClick=null){const d=document.createElement("div");d.className=cls+(FLOWERS.has(t)?" flower":"");if(onClick)d.onclick=onClick;else d.classList.add("locked");if(t==="empty"){d.classList.add("empty");d.title="使用済みの嶺上牌枠";return d;}if(t==="back"){d.classList.add("back");return d;}const img=document.createElement("img");img.src="images/"+(imageMap[t]||"");img.alt=t;img.onerror=()=>{d.textContent=t;};d.appendChild(img);return d;}
-function deal(){dealAllPlayers();bindPlayerAliases();log("新しい対局を開始しました");render();}
 
 function normalizeDebugTile(input){
   const raw=(input||"").trim();
@@ -1044,9 +1043,7 @@ function toggleDebugControls(){
   localStorage.setItem("ksb.ui.debugCollapsed",collapsed?"1":"0");
   updateUiModeButtons();
 }
-initializeUiDisplay();
-
-gameState=createInitialGameState();bindPlayerAliases();renderProfile();newGame();
 </script>
+<script src="./js/core/appBootstrap.js"></script>
 </body>
 </html>
