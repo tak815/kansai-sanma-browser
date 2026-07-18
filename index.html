@@ -680,6 +680,12 @@ function syncNormalActionButtons(){
 
 function renderDebugPanel(){document.getElementById("handCountDebug").textContent=`自家${gameState.hands.east.length} / 南家${gameState.hands.south.length} / 西家${gameState.hands.west.length}`;document.getElementById("riverCountDebug").textContent=`自家${gameState.rivers.east.length} / 南家${gameState.rivers.south.length} / 西家${gameState.rivers.west.length}`;document.getElementById("flowerCountDebug").textContent=`自家${gameState.flowers.east.length} / 南家${gameState.flowers.south.length} / 西家${gameState.flowers.west.length}`;const rsd=document.getElementById("riichiStateDebug");if(rsd)rsd.textContent=`自家${gameState.riichi.east?"済":"-"} / 南家${gameState.riichi.south?"済":"-"} / 西家${gameState.riichi.west?"済":"-"}`;const cdd=document.getElementById("cpuDecisionDebug");if(cdd)cdd.textContent=cpuDecisionText;document.getElementById("stateText").textContent=`${phaseText()} / ${roundLabelText()} / ${gameState.honba}本場 / 供託${gameState.deposit}${debugAiPaused?" / AI停止中":""}`;}
 
+function renderRoundStatus(){
+  const rl=document.getElementById("roundLabel");
+  if(rl)rl.textContent=roundLabelText();
+  document.getElementById("remain").textContent=wall.length;
+}
+
 function renderDoraSummary(){
   // 元のドラ集計テキスト表示処理
   document.getElementById("doraCount").textContent=doraIndicators.length+"枚";const doraInfo=getHandDoraInfo();document.getElementById("frontDoraTotal").textContent=(doraInfo.summary.baseFlower+doraInfo.summary.front)+"";document.getElementById("uraDoraTotal").textContent=doraInfo.summary.ura+(riichiDeclared?"":"（未有効）");document.getElementById("handDoraTotal").textContent=doraInfo.summary.total+"";document.getElementById("doraBreakdown").textContent=(doraInfo.rows.length?"ドラ内訳："+doraInfo.rows.join(" / "):"ドラ内訳：なし")+" ｜ "+doraIndicatorLabel();
@@ -707,7 +713,7 @@ function renderDoraIndicators(){
 function renderBoard(){
   renderPlayerHand();const r=document.getElementById("river");r.innerHTML="";river.forEach(t=>r.appendChild(riverTileNode(t)));renderSeatRiver(document.getElementById("riverSouth"),gameState.rivers.south,"south");renderSeatRiver(document.getElementById("riverWest"),gameState.rivers.west,"west");const rs=document.getElementById("rinshan");rs.innerHTML="";for(let i=0;i<8;i++){rs.appendChild(tileNode(i<rinshanPile.length?"back":"empty","tile small"));}const f=document.getElementById("flowers");if(f){f.innerHTML="";gameState.flowers[PLAYER_SEAT].forEach(t=>f.appendChild(tileNode(t,"tile small")));}const m=document.getElementById("melds");m.innerHTML="";melds.forEach(meld=>{const box=document.createElement("div");box.className="meld";const label=document.createElement("span");label.className="meld-label";label.textContent=meld.type;box.appendChild(label);meld.tiles.forEach(t=>box.appendChild(tileNode(t,"tile small")));m.appendChild(box);});const flowerAvailable=TurnManager.isPlayer()&&canDiscard&&hasFlowerInSeat(PLAYER_SEAT)&&rinshanPile.length>0;const fb=document.getElementById("flowerButton");if(fb)fb.disabled=!flowerAvailable;const nfb=document.getElementById("normalFlowerButton");if(nfb){nfb.disabled=!flowerAvailable;nfb.classList.toggle("available",flowerAvailable);nfb.title=flowerAvailable?"手牌の花牌を抜き、嶺上牌から補充します":"現在は抜き花できません";}const choices=getKanChoices();const kb=document.getElementById("kanButton");kb.classList.toggle("show",choices.length>0&&TurnManager.isPlayer());document.getElementById("kanHint").textContent=TurnManager.isPlayer()&&choices.length?"カン可能：カンボタンを押してください":(!canRevealKanDora()?"カンドラを新たにめくれない、または嶺上牌がないためカン不可":"");syncNormalActionButtons();
 }
-function render(){bindPlayerAliases();renderProfile();const rl=document.getElementById("roundLabel");if(rl)rl.textContent=roundLabelText();document.getElementById("remain").textContent=wall.length;renderDoraSummary();renderTurnStatus();renderDebugPanel();renderMatchHud();updateShantenDebug();updateYakuDebug(pendingWin);renderActionButtons();renderDoraIndicators();renderBoard();}
+function render(){bindPlayerAliases();renderProfile();renderRoundStatus();renderDoraSummary();renderTurnStatus();renderDebugPanel();renderMatchHud();updateShantenDebug();updateYakuDebug(pendingWin);renderActionButtons();renderDoraIndicators();renderBoard();}
 
 function isWinningHandForSeat(seat, extraTile=null){
   const material=handMaterialTiles(seat).slice();
