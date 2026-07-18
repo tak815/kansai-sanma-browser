@@ -228,29 +228,6 @@ function showCall(text,kind=""){
 }
 
 function roundLabelText(state=gameState){return `${state.returnEast?"返り東":""}${state.roundWind}${state.handNumber}局`;}
-function clearAgariYameChoice(){gameState.agariYameAvailable=false;gameState.agariYameWinner=null;}
-function finishForBustIfNeeded(extraReason=""){
-  const busted=getBustedSeat();
-  if(!busted)return false;
-  clearAgariYameChoice();
-  finishMatch(`${SEAT_LABELS[busted]}が0点以下${extraReason?`（${extraReason}）`:""}のためトビ終了`);
-  return true;
-}
-function handlePostAgariMatchDecision(winner,normalEndReason){
-  if(finishForBustIfNeeded("箱下計算を反映"))return;
-  if(canOfferAgariYame(winner)){
-    if(winner===PLAYER_SEAT){
-      gameState.agariYameAvailable=true;
-      gameState.agariYameWinner=winner;
-      log("オーラス親トップ和了：上がりやめ、または連荘続行を選択してください");
-      return;
-    }
-    finishMatch("南3局 CPU親トップの上がりやめ");
-    return;
-  }
-  clearAgariYameChoice();
-  if(!gameState.nextRound)finishMatch(normalEndReason);
-}
 function chooseAgariYame(){
   if(!gameState.agariYameAvailable||gameState.agariYameWinner!==PLAYER_SEAT){alert("上がりやめを選べる状態ではありません");return;}
   finishMatch("南3局 親トップの上がりやめ");
@@ -307,21 +284,6 @@ function restartMatch(){
   newGame();
   log("新しい対局を開始しました：東1局・全員35000点");
   render();
-}
-
-function finishMatch(reason){
-  clearAgariYameChoice();
-  gameState.nextRound=null;
-  gameState.gameEnded=true;
-  gameState.started=false;
-  canDiscard=false;
-  const busted=getBustedSeat();
-  if(busted){const stats=ensureStats();stats.busted[busted]=(stats.busted[busted]||0)+1;}
-  gameState.matchResult=makeMatchResult(reason);
-  persistCompletedMatch();
-  recordReplayEvent("match_end",`対局終了：${reason}`);
-  saveReplayHistory();
-  log(`対局終了：${reason} / ${matchResultText()}`);
 }
 
 function currentTenpaiMap(){

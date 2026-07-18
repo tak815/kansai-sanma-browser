@@ -83,6 +83,29 @@ function shouldEndMatchAfterHand(dealerContinues){
 function getBustedSeat(){return SEATS.find(seat=>gameState.points[seat]<=0)||null;}
 function isTopSeat(seat){const max=Math.max(...SEATS.map(s=>gameState.points[s]));return gameState.points[seat]===max;}
 function canOfferAgariYame(winner){return isSouthAllLast()&&winner===gameState.dealer&&isTopSeat(winner);}
+function clearAgariYameChoice(){gameState.agariYameAvailable=false;gameState.agariYameWinner=null;}
+function finishForBustIfNeeded(extraReason=""){
+  const busted=getBustedSeat();
+  if(!busted)return false;
+  clearAgariYameChoice();
+  finishMatch(`${SEAT_LABELS[busted]}が0点以下${extraReason?`（${extraReason}）`:""}のためトビ終了`);
+  return true;
+}
+function handlePostAgariMatchDecision(winner,normalEndReason){
+  if(finishForBustIfNeeded("箱下計算を反映"))return;
+  if(canOfferAgariYame(winner)){
+    if(winner===PLAYER_SEAT){
+      gameState.agariYameAvailable=true;
+      gameState.agariYameWinner=winner;
+      log("オーラス親トップ和了：上がりやめ、または連荘続行を選択してください");
+      return;
+    }
+    finishMatch("南3局 CPU親トップの上がりやめ");
+    return;
+  }
+  clearAgariYameChoice();
+  if(!gameState.nextRound)finishMatch(normalEndReason);
+}
 
 function makeMatchResult(reason){
   const ranked=SEATS.slice().sort((a,b)=>{
@@ -90,6 +113,21 @@ function makeMatchResult(reason){
     return diff!==0?diff:SEATS.indexOf(a)-SEATS.indexOf(b);
   });
   return {reason,ranking:ranked.map((seat,index)=>({rank:index+1,seat,points:gameState.points[seat]}))};
+}
+
+function finishMatch(reason){
+  clearAgariYameChoice();
+  gameState.nextRound=null;
+  gameState.gameEnded=true;
+  gameState.started=false;
+  canDiscard=false;
+  const busted=getBustedSeat();
+  if(busted){const stats=ensureStats();stats.busted[busted]=(stats.busted[busted]||0)+1;}
+  gameState.matchResult=makeMatchResult(reason);
+  persistCompletedMatch();
+  recordReplayEvent("match_end",`対局終了：${reason}`);
+  saveReplayHistory();
+  log(`対局終了：${reason} / ${matchResultText()}`);
 }
 
 function makeNextRoundCarryAfterAgari(win){
