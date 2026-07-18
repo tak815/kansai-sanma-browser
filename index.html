@@ -190,6 +190,8 @@
 </div>
 <div id="callOverlay" class="call-overlay" aria-live="polite" aria-atomic="true"><div id="callText" class="call-text"></div></div>
 <script src="./js/audio/soundManager.js"></script>
+<script src="./js/stats/statsManager.js"></script>
+<script src="./js/replay/replayManager.js"></script>
 <script>
 const imageMap={"1m":"1m.png","9m":"9m.png","東":"east.png","南":"south.png","西":"west.png","北":"north.png","白":"white.png","發":"green.png","中":"red.png","春":"spring.png","夏":"summer.png","秋":"autumn.png","冬":"winter.png"};
 for(let i=1;i<=9;i++){imageMap[i+"p"]=i+"p.png";imageMap[i+"s"]=i+"s.png";}
@@ -226,27 +228,8 @@ function showCall(text,kind=""){
   callOverlayTimer=setTimeout(()=>{overlay.classList.remove("show");callOverlayTimer=null;},1000);
 }
 
-
-const REPLAY_STORAGE_KEY="ksb_replay_history_v1";
-const REPLAY_SCHEMA_VERSION=3;
-let activeReplay=null,replayIndex=0,replayTimer=null,currentReplay=null,replayPlayInterval=700,replayVisibilityMode="full",replayDelaySeconds=0;
 const SPECTATOR_FEED_ENDPOINT=null;
 let spectatorMatches=[];
-function cloneReplayValue(v){return JSON.parse(JSON.stringify(v));}
-function replaySnapshot(){return {roundWind:gameState.roundWind,handNumber:gameState.handNumber,returnEast:!!gameState.returnEast,honba:gameState.honba,deposit:gameState.deposit,dealer:gameState.dealer,currentSeat:gameState.currentSeat,phase:gameState.phase,points:cloneReplayValue(gameState.points),hands:cloneReplayValue(gameState.hands),rivers:cloneReplayValue(gameState.rivers),melds:cloneReplayValue(gameState.melds),flowers:cloneReplayValue(gameState.flowers),riichi:cloneReplayValue(gameState.riichi),doraIndicators:cloneReplayValue(doraIndicators),uraIndicators:cloneReplayValue(uraIndicators||[]),wallRemaining:wall.length,rinshanRemaining:rinshan.length};}
-function beginReplayRecording(){if(!currentReplay||currentReplay.endedAt){currentReplay={schemaVersion:REPLAY_SCHEMA_VERSION,source:"local",visibilityMode:"full",spectatorDelaySeconds:0,id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,startedAt:new Date().toISOString(),endedAt:null,events:[],result:null,bookmarks:[],viewerSeat:PLAYER_SEAT};}recordReplayEvent("round_start",`${roundLabelText()} 開始`);}
-function recordReplayEvent(type,label,extra={}){if(!currentReplay||!gameState)return;currentReplay.events.push({seq:currentReplay.events.length,time:Date.now(),type,label,extra:cloneReplayValue(extra),state:replaySnapshot()});}
-function normalizeReplay(raw){if(!raw||!Array.isArray(raw.events))return null;const events=raw.events.filter(e=>e&&typeof e==="object"&&e.state).map((e,i)=>({...e,seq:Number.isFinite(Number(e.seq))?Number(e.seq):i,time:Number(e.time)||Date.now()}));if(!events.length)return null;return {schemaVersion:Number(raw.schemaVersion)||1,source:raw.source||"local",visibilityMode:["full","self","hidden"].includes(raw.visibilityMode)?raw.visibilityMode:"full",spectatorDelaySeconds:Math.max(0,Number(raw.spectatorDelaySeconds)||0),viewerSeat:SEATS.includes(raw.viewerSeat)?raw.viewerSeat:PLAYER_SEAT,id:raw.id||`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,startedAt:raw.startedAt||new Date().toISOString(),endedAt:raw.endedAt||null,events,result:raw.result||null,bookmarks:Array.isArray(raw.bookmarks)?raw.bookmarks.filter(i=>Number.isInteger(i)&&i>=0&&i<events.length):[]};}
-function loadReplayHistory(){try{return JSON.parse(localStorage.getItem(REPLAY_STORAGE_KEY)||"[]").map(normalizeReplay).filter(Boolean);}catch(e){return [];}}
-function persistReplayHistory(history){localStorage.setItem(REPLAY_STORAGE_KEY,JSON.stringify((history||[]).slice(-20)));}
-function replayDisplayName(r,index){const dt=new Date(r.startedAt);const when=Number.isNaN(dt.getTime())?`牌譜${index+1}`:dt.toLocaleString();const count=(r.events||[]).length;return `${when} / ${count}イベント${r.result?" / 終局":""}`;}
-function refreshReplayHistorySelect(){const sel=document.getElementById("replayHistorySelect");if(!sel)return;const h=loadReplayHistory();sel.innerHTML="";h.slice().reverse().forEach((r,revIndex)=>{const opt=document.createElement("option");opt.value=r.id;opt.textContent=replayDisplayName(r,h.length-1-revIndex);if(activeReplay&&r.id===activeReplay.id)opt.selected=true;sel.appendChild(opt);});if(!h.length){const opt=document.createElement("option");opt.textContent="保存された牌譜はありません";opt.value="";sel.appendChild(opt);}}
-function selectReplayFromHistory(id){stopReplayPlay();const r=loadReplayHistory().find(x=>x.id===id);if(!r)return;activeReplay=r;replayIndex=0;replayVisibilityMode=r.visibilityMode||"full";replayDelaySeconds=Math.max(0,Number(r.spectatorDelaySeconds)||0);syncReplayPrivacyControls();renderReplayFrame();}
-function exportActiveReplayJson(){if(!activeReplay)return alert("書き出せる牌譜がありません");const blob=new Blob([JSON.stringify(activeReplay,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ksb-replay-${activeReplay.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
-function importReplayJson(event){const file=event.target.files&&event.target.files[0];event.target.value="";if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const replay=normalizeReplay(JSON.parse(reader.result));if(!replay)throw new Error("invalid");replay.id=`import-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;replay.source="import";const h=loadReplayHistory();h.push(replay);persistReplayHistory(h);activeReplay=replay;replayIndex=0;refreshReplayHistorySelect();renderReplayFrame();}catch(e){alert("牌譜JSONを読み込めませんでした");}};reader.readAsText(file);}
-function deleteActiveReplay(){if(!activeReplay||!confirm("選択中の牌譜を削除しますか？"))return;const h=loadReplayHistory().filter(x=>x.id!==activeReplay.id);persistReplayHistory(h);activeReplay=h.length?h[h.length-1]:null;replayIndex=0;refreshReplayHistorySelect();renderReplayFrame();}
-function saveReplayHistory(){if(!currentReplay||!currentReplay.events.length)return;currentReplay.endedAt=new Date().toISOString();currentReplay.result=gameState.matchResult?cloneReplayValue(gameState.matchResult):null;const history=loadReplayHistory();const idx=history.findIndex(x=>x.id===currentReplay.id);if(idx>=0)history[idx]=currentReplay;else history.push(currentReplay);persistReplayHistory(history);}
-function latestReplay(){const h=loadReplayHistory();return currentReplay&&currentReplay.events.length?currentReplay:(h.length?h[h.length-1]:null);}
 function buildLocalSpectatorMatches(){const history=loadReplayHistory();return history.slice().reverse().map((replay,index)=>{const averageRate=2050+((history.length-index)%8)*50;return {id:replay.id,replay,averageRate,players:[`東家 R${averageRate+35}`,`南家 R${averageRate}`,`西家 R${averageRate-40}`],status:replay.result?"対局終了":"対局中",startedAt:replay.startedAt,eventCount:(replay.events||[]).length};});}
 async function loadSpectatorMatches(){if(SPECTATOR_FEED_ENDPOINT){try{const response=await fetch(SPECTATOR_FEED_ENDPOINT,{cache:"no-store"});if(!response.ok)throw new Error("feed");const data=await response.json();if(Array.isArray(data.matches))return data.matches;}catch(error){console.warn("観戦フィードを取得できません",error);}}return buildLocalSpectatorMatches();}
 async function refreshSpectatorMatches(){spectatorMatches=await loadSpectatorMatches();renderSpectatorLobby();}
@@ -254,182 +237,6 @@ function openSpectatorLobby(){document.getElementById("spectatorModal").hidden=f
 function closeSpectatorLobby(){document.getElementById("spectatorModal").hidden=true;}
 function renderSpectatorLobby(){const list=document.getElementById("spectatorMatchList");if(!list)return;const minRate=Math.max(0,Number((document.getElementById("spectatorMinRate")||{}).value)||0);const matches=spectatorMatches.filter(m=>(Number(m.averageRate)||0)>=minRate);if(!matches.length){list.innerHTML='<div class="spectator-empty">条件に合う観戦可能な対局はありません。数巡進めて牌譜を保存すると開発プレビューに表示されます。</div>';return;}list.innerHTML=matches.map(m=>{const when=new Date(m.startedAt);const time=Number.isNaN(when.getTime())?"時刻不明":when.toLocaleString();return `<div class="spectator-match"><div><h3>平均レート ${m.averageRate}<span class="spectator-badge">${m.status}</span></h3><p>${(m.players||[]).join(" / ")}</p><p>${time}　${m.eventCount||0}イベント</p></div><button class="btn btn-primary" onclick="watchSpectatorMatch('${m.id}')">観戦する</button></div>`;}).join("");}
 function watchSpectatorMatch(id){const match=spectatorMatches.find(m=>m.id===id);if(!match||!match.replay)return;const delay=Math.max(60,Number((document.getElementById("spectatorLobbyDelay")||{}).value)||120);activeReplay=normalizeReplay(cloneReplayValue(match.replay));if(!activeReplay)return;activeReplay.source="spectator_preview";activeReplay.visibilityMode="hidden";activeReplay.spectatorDelaySeconds=delay;activeReplay.viewerSeat=null;replayIndex=0;replayVisibilityMode="hidden";replayDelaySeconds=delay;closeSpectatorLobby();document.getElementById("replayModal").hidden=false;refreshReplayHistorySelect();syncReplayPrivacyControls();renderReplayFrame();}
-function openReplayViewer(){activeReplay=latestReplay();replayIndex=0;replayVisibilityMode=activeReplay?.visibilityMode||"full";replayDelaySeconds=Math.max(0,Number(activeReplay?.spectatorDelaySeconds)||0);document.getElementById("replayModal").hidden=false;refreshReplayHistorySelect();syncReplayPrivacyControls();renderReplayFrame();}
-function closeReplayViewer(){stopReplayPlay();document.getElementById("replayModal").hidden=true;}
-function stopReplayPlay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}const b=document.getElementById("replayPlayButton");if(b)b.textContent="再生";}
-function toggleReplayPlay(){if(!activeReplay||!activeReplay.events.length)return;if(replayTimer){stopReplayPlay();return;}const b=document.getElementById("replayPlayButton");if(b)b.textContent="停止";replayTimer=setInterval(()=>{if(replayIndex>=replayMaxVisibleIndex()){stopReplayPlay();return;}replayIndex++;renderReplayFrame();},replayPlayInterval);}function setReplaySpeed(v){replayPlayInterval=Math.max(100,Number(v)||700);if(replayTimer){stopReplayPlay();toggleReplayPlay();}}function replayFilteredIndexes(){if(!activeReplay)return[];const type=(document.getElementById("replayTypeFilter")||{}).value||"all";const q=((document.getElementById("replaySearchInput")||{}).value||"").trim().toLowerCase();const max=replayMaxVisibleIndex();return activeReplay.events.map((e,i)=>({e,i})).filter(({e,i})=>i<=max&&(type==="all"||e.type===type)&&(!q||`${e.label} ${JSON.stringify(e.extra||{})}`.toLowerCase().includes(q))).map(x=>x.i);}function jumpReplayIndex(i){stopReplayPlay();replayIndex=Math.max(0,Math.min(Number(i)||0,replayMaxVisibleIndex()));renderReplayFrame();}function toggleReplayBookmark(){if(!activeReplay)return;activeReplay.bookmarks=Array.isArray(activeReplay.bookmarks)?activeReplay.bookmarks:[];const pos=activeReplay.bookmarks.indexOf(replayIndex);if(pos>=0)activeReplay.bookmarks.splice(pos,1);else activeReplay.bookmarks.push(replayIndex);activeReplay.bookmarks.sort((a,b)=>a-b);const h=loadReplayHistory(),idx=h.findIndex(x=>x.id===activeReplay.id);if(idx>=0){h[idx]=activeReplay;persistReplayHistory(h);}renderReplayFrame();}function jumpToNextBookmark(){if(!activeReplay||!activeReplay.bookmarks?.length)return;const next=activeReplay.bookmarks.find(i=>i>replayIndex);jumpReplayIndex(next===undefined?activeReplay.bookmarks[0]:next);}
-function setReplayVisibility(v){replayVisibilityMode=["full","self","hidden"].includes(v)?v:"full";renderReplayFrame();}
-function setReplayDelay(v){replayDelaySeconds=Math.max(0,Number(v)||0);const max=replayMaxVisibleIndex();if(replayIndex>max)replayIndex=max;renderReplayFrame();}
-function replayMaxVisibleIndex(){if(!activeReplay||!activeReplay.events.length)return 0;if(!replayDelaySeconds)return activeReplay.events.length-1;const lastTime=Number(activeReplay.events[activeReplay.events.length-1].time)||0;const cutoff=lastTime-replayDelaySeconds*1000;let max=0;activeReplay.events.forEach((e,i)=>{if((Number(e.time)||0)<=cutoff)max=i;});return max;}
-function syncReplayPrivacyControls(){const vis=document.getElementById("replayVisibilitySelect"),delay=document.getElementById("replayDelaySelect");if(vis)vis.value=replayVisibilityMode;if(delay)delay.value=String(replayDelaySeconds);}
-function replayHandContainer(tiles,seat){const reveal=replayVisibilityMode==="full"||(replayVisibilityMode==="self"&&seat===(activeReplay?.viewerSeat||PLAYER_SEAT));if(reveal)return replayTileContainer(tiles);const box=document.createElement("div");box.className="replay-hidden-hand";for(let i=0;i<(tiles||[]).length;i++){const back=document.createElement("div");back.className="replay-tile-back";back.title="非公開";box.appendChild(back);}return box;}
-function replayFirst(){stopReplayPlay();replayIndex=0;renderReplayFrame();}function replayLast(){stopReplayPlay();if(activeReplay)replayIndex=replayMaxVisibleIndex();renderReplayFrame();}function replayPrev(){stopReplayPlay();replayIndex=Math.max(0,replayIndex-1);renderReplayFrame();}function replayNext(){stopReplayPlay();if(activeReplay)replayIndex=Math.min(replayMaxVisibleIndex(),replayIndex+1);renderReplayFrame();}
-function replayTileContainer(tiles){const box=document.createElement("div");box.className="replay-tiles";(tiles||[]).forEach(t=>box.appendChild(tileNode(tileValue(t),"tile small locked")));return box;}
-function renderReplayFrame(){const meta=document.getElementById("replayMeta"),stage=document.getElementById("replayStage"),list=document.getElementById("replayEventList");if(!activeReplay||!activeReplay.events.length){meta.textContent="保存された牌譜はありません";stage.innerHTML='<div class="replay-empty">対局を進めるとイベント列として保存されます。</div>';list.innerHTML="";return;}const maxVisible=replayMaxVisibleIndex();replayIndex=Math.max(0,Math.min(replayIndex,maxVisible));const e=activeReplay.events[replayIndex],st=e.state;const delayNote=document.getElementById("replayDelayNote");if(delayNote)delayNote.textContent=replayDelaySeconds?`観戦プレビュー：${replayDelaySeconds}秒ディレイ（${maxVisible+1}/${activeReplay.events.length}イベント公開）`:"";meta.textContent=`${replayIndex+1}/${activeReplay.events.length}　${e.label}　[${activeReplay.source||"local"}/${activeReplay.visibilityMode||"full"}]　${st.returnEast?"返り東 ":""}${st.roundWind}${st.handNumber}局 ${st.honba}本場　山${st.wallRemaining}　供託${st.deposit}`;stage.innerHTML="";const grid=document.createElement("div");grid.className="replay-grid";SEATS.forEach(seat=>{const card=document.createElement("div");card.className="replay-seat";const h=document.createElement("h3");h.textContent=`${SEAT_LABELS[seat]} ${formatPoints(st.points[seat])}点${st.riichi[seat]?" / リーチ":""}`;card.appendChild(h);card.appendChild(replayHandContainer(st.hands[seat],seat));const f=document.createElement("div");f.className="note";f.textContent="抜き花";card.appendChild(f);card.appendChild(replayTileContainer(st.flowers[seat]));const m=document.createElement("div");m.className="note";m.textContent="副露";card.appendChild(m);card.appendChild(replayTileContainer((st.melds[seat]||[]).flatMap(x=>x.tiles||[])));const r=document.createElement("div");r.className="note";r.textContent="河";card.appendChild(r);card.appendChild(replayTileContainer(st.rivers[seat]));grid.appendChild(card);});const d=document.createElement("div");d.className="replay-seat";const dh=document.createElement("h3");dh.textContent="ドラ表示";d.appendChild(dh);d.appendChild(replayTileContainer(st.doraIndicators));grid.appendChild(d);stage.appendChild(grid);const filtered=replayFilteredIndexes();list.innerHTML=filtered.map(i=>{const x=activeReplay.events[i],marked=(activeReplay.bookmarks||[]).includes(i);return `<button onclick="jumpReplayIndex(${i})" class="${i===replayIndex?'active':''} ${marked?'replay-bookmark':''}">${marked?'★ ':''}${i+1}. ${x.label}</button>`;}).join("")||'<div class="replay-empty">条件に合うイベントがありません</div>';const active=[...list.querySelectorAll("button")].find(b=>b.classList.contains("active"));if(active)active.scrollIntoView({block:"nearest"});}
-const PROFILE_STORAGE_KEY="ksb.profileStats";
-const PROFILE_SCHEMA_VERSION=2;
-function emptySeatCounter(){return {east:0,south:0,west:0};}
-function emptySeatMap(factory){return {east:factory(),south:factory(),west:factory()};}
-function createMatchStats(){
-  return {
-    schemaVersion:1,
-    handsPlayed:0,
-    wins:emptySeatCounter(),
-    dealIns:emptySeatCounter(),
-    bustAwards:emptySeatCounter(),
-    busted:emptySeatCounter(),
-    yakuWins:emptySeatMap(()=>({})),
-    winEvents:[]
-  };
-}
-function mergeObjectCounter(target,source){
-  Object.entries(source||{}).forEach(([key,value])=>target[key]=(target[key]||0)+(Number(value)||0));
-  return target;
-}
-function normalizeMatchStats(raw){
-  const stats=createMatchStats();
-  if(!raw||typeof raw!=="object")return stats;
-  stats.handsPlayed=Number(raw.handsPlayed)||0;
-  SEATS.forEach(seat=>{
-    stats.wins[seat]=Number(raw.wins?.[seat])||0;
-    stats.dealIns[seat]=Number(raw.dealIns?.[seat])||0;
-    stats.bustAwards[seat]=Number(raw.bustAwards?.[seat])||0;
-    stats.busted[seat]=Number(raw.busted?.[seat])||0;
-    mergeObjectCounter(stats.yakuWins[seat],raw.yakuWins?.[seat]);
-  });
-  stats.winEvents=Array.isArray(raw.winEvents)?raw.winEvents.slice(-200):[];
-  return stats;
-}
-function createProfileStats(){
-  return {
-    schemaVersion:PROFILE_SCHEMA_VERSION,
-    profile:{name:"プレイヤー",rank:"未設定",rating:1500},
-    totals:{matches:0,hands:0,wins:0,dealIns:0,bustAwards:0,busted:0},
-    placements:{1:0,2:0,3:0},
-    yaku:{winsByName:{},hanByName:{},scoreByName:{},ronByName:{},tsumoByName:{}},
-    aggregates:{finalPointsTotal:0,rankTotal:0,winScoreTotal:0},
-    matchHistory:[],
-    winHistory:[],
-    extensionData:{}
-  };
-}
-function migrateProfileStats(raw){
-  const base=createProfileStats();
-  if(!raw||typeof raw!=="object")return base;
-  base.profile=Object.assign(base.profile,raw.profile||{});
-  base.totals=Object.assign(base.totals,raw.totals||{});
-  base.placements=Object.assign(base.placements,raw.placements||{});
-  base.yaku.winsByName=Object.assign({},raw.yaku?.winsByName||{});
-  base.yaku.hanByName=Object.assign({},raw.yaku?.hanByName||{});
-  base.yaku.scoreByName=Object.assign({},raw.yaku?.scoreByName||{});
-  base.yaku.ronByName=Object.assign({},raw.yaku?.ronByName||{});
-  base.yaku.tsumoByName=Object.assign({},raw.yaku?.tsumoByName||{});
-  base.aggregates=Object.assign(base.aggregates,raw.aggregates||{});
-  base.matchHistory=Array.isArray(raw.matchHistory)?raw.matchHistory.slice(-100):[];
-  base.winHistory=Array.isArray(raw.winHistory)?raw.winHistory.slice(-500):[];
-  base.extensionData=Object.assign({},raw.extensionData||{});
-  base.schemaVersion=PROFILE_SCHEMA_VERSION;
-  return base;
-}
-function loadProfileStats(){
-  try{return migrateProfileStats(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY)||"null"));}
-  catch(e){return createProfileStats();}
-}
-let profileStats=loadProfileStats();
-function saveProfileStats(){
-  try{localStorage.setItem(PROFILE_STORAGE_KEY,JSON.stringify(profileStats));}
-  catch(e){console.warn("統計データを保存できませんでした",e);}
-}
-function renderProfile(){
-  const fields={profileNameLabel:profileStats.profile.name,profileRankLabel:profileStats.profile.rank,profileRatingLabel:profileStats.profile.rating,profileMatchesLabel:profileStats.totals.matches};
-  Object.entries(fields).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=value;});
-}
-function persistCompletedMatch(){
-  if(!gameState.matchResult||gameState.matchResult.persisted)return;
-  const playerRow=gameState.matchResult.ranking.find(row=>row.seat===PLAYER_SEAT);
-  if(!playerRow)return;
-  const stats=ensureStats();
-  profileStats.totals.matches+=1;
-  profileStats.totals.hands+=stats.handsPlayed||0;
-  profileStats.totals.wins+=stats.wins[PLAYER_SEAT]||0;
-  profileStats.totals.dealIns+=stats.dealIns[PLAYER_SEAT]||0;
-  profileStats.totals.bustAwards+=stats.bustAwards[PLAYER_SEAT]||0;
-  profileStats.totals.busted+=stats.busted[PLAYER_SEAT]||0;
-  profileStats.placements[playerRow.rank]=(profileStats.placements[playerRow.rank]||0)+1;
-  profileStats.aggregates.finalPointsTotal+=playerRow.points||0;
-  profileStats.aggregates.rankTotal+=playerRow.rank||0;
-  mergeObjectCounter(profileStats.yaku.winsByName,stats.yakuWins[PLAYER_SEAT]);
-  (stats.winEvents||[]).filter(e=>e.seat===PLAYER_SEAT).forEach(event=>{
-    const eventScore=Number(event.score)||0;
-    const eventType=event.type==="tsumo"?"tsumo":"ron";
-    (event.yaku||[]).forEach(y=>{
-      const name=String(y.name||"不明");
-      profileStats.yaku.hanByName[name]=(profileStats.yaku.hanByName[name]||0)+(Number(y.han)||0);
-      profileStats.yaku.scoreByName[name]=(profileStats.yaku.scoreByName[name]||0)+eventScore;
-      const typeMap=eventType==="tsumo"?profileStats.yaku.tsumoByName:profileStats.yaku.ronByName;
-      typeMap[name]=(typeMap[name]||0)+1;
-    });
-    profileStats.aggregates.winScoreTotal+=eventScore;
-    profileStats.winHistory.push({
-      id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-      recordedAt:event.recordedAt||new Date().toISOString(),
-      type:eventType,
-      from:event.from||PLAYER_SEAT,
-      tile:event.tile||null,
-      round:event.round||"",
-      yaku:(event.yaku||[]).map(y=>({name:String(y.name||"不明"),han:Number(y.han)||0})),
-      totalHan:Number(event.totalHan)||0,
-      limit:event.limit||"",
-      score:eventScore,
-      extensionData:Object.assign({},event.extensionData||{})
-    });
-  });
-  profileStats.winHistory=profileStats.winHistory.slice(-500);
-  profileStats.matchHistory.push({
-    id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-    playedAt:new Date().toISOString(),
-    rank:playerRow.rank,
-    finalPoints:playerRow.points,
-    reason:gameState.matchResult.reason,
-    hands:stats.handsPlayed||0,
-    wins:stats.wins[PLAYER_SEAT]||0,
-    dealIns:stats.dealIns[PLAYER_SEAT]||0,
-    yakuWins:Object.assign({},stats.yakuWins[PLAYER_SEAT]),
-    extensionData:{}
-  });
-  profileStats.matchHistory=profileStats.matchHistory.slice(-100);
-  gameState.matchResult.persisted=true;
-  saveProfileStats();
-  renderProfile();
-}
-
-
-function formatPercent(n,d){return d>0?`${(n/d*100).toFixed(1)}%`:'0.0%';}
-function openStatsModal(){renderDetailedStats();document.getElementById('statsModal').hidden=false;}
-function closeStatsModal(){document.getElementById('statsModal').hidden=true;}
-function renderDetailedStats(){
-  const t=profileStats.totals||{},a=profileStats.aggregates||{};
-  const avgRank=t.matches?((a.rankTotal||0)/t.matches).toFixed(2):'-';
-  const avgPoints=t.matches?Math.round((a.finalPointsTotal||0)/t.matches).toLocaleString():'-';
-  const boxes=[['総対局数',t.matches||0],['平均順位',avgRank],['上がり率',formatPercent(t.wins||0,t.hands||0)],['放銃率',formatPercent(t.dealIns||0,t.hands||0)],['平均最終点',avgPoints],['飛ばし賞',t.bustAwards||0],['飛ばされた回数',t.busted||0],['保存形式',`v${profileStats.schemaVersion||1}`]];
-  document.getElementById('statsSummary').innerHTML=boxes.map(([k,v])=>`<div class="stats-box"><span>${k}</span><b>${v}</b></div>`).join('');
-  const y=profileStats.yaku?.winsByName||{},h=profileStats.yaku?.hanByName||{},sc=profileStats.yaku?.scoreByName||{},rn=profileStats.yaku?.ronByName||{},ts=profileStats.yaku?.tsumoByName||{};
-  const rows=Object.keys(y).sort((x,z)=>(y[z]||0)-(y[x]||0)||x.localeCompare(z,'ja')).map(name=>{
-    const count=y[name]||0,avgHan=count?((h[name]||0)/count).toFixed(2):'-',avgScore=count?Math.round((sc[name]||0)/count).toLocaleString():'-';
-    return `<tr><td>${escapeHtml(name)}</td><td>${count}</td><td>${rn[name]||0}</td><td>${ts[name]||0}</td><td>${avgHan}</td><td>${avgScore}</td></tr>`;
-  }).join('');
-  document.getElementById('yakuStatsBody').innerHTML=rows?`<table class="stats-table"><thead><tr><th>役</th><th>和了回数</th><th>ロン</th><th>ツモ</th><th>平均翻</th><th>平均打点</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="stats-empty">まだ役別和了データはありません。</div>';
-  const mh=(profileStats.matchHistory||[]).slice(-10).reverse();
-  const mr=mh.map(m=>`<tr><td>${new Date(m.playedAt).toLocaleString('ja-JP')}</td><td>${m.rank}位</td><td>${Number(m.finalPoints||0).toLocaleString()}</td><td>${m.wins||0}</td><td>${m.dealIns||0}</td></tr>`).join('');
-  document.getElementById('recentMatchStatsBody').innerHTML=mr?`<table class="stats-table"><thead><tr><th>日時</th><th>順位</th><th>最終点</th><th>和了</th><th>放銃</th></tr></thead><tbody>${mr}</tbody></table>`:'<div class="stats-empty">まだ対局履歴はありません。</div>';
-}
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function exportStatsJson(){
-  const blob=new Blob([JSON.stringify(profileStats,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ksb-stats-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-function resetStatsForDebug(){if(!confirm('保存済みの統計を初期化しますか？'))return;profileStats=createProfileStats();saveProfileStats();renderProfile();renderDetailedStats();log('統計情報を初期化しました');}
-
 function createInitialGameState(){
   return {
     version:"v0.3.13-6",
@@ -551,38 +358,6 @@ function formatPoints(value){return Number(value||0).toLocaleString("ja-JP");}
 function rateText(count,total){return total>0?`${((count/total)*100).toFixed(1)}%`:`0.0%`;}
 function rawScore(points){return (points-40000)/1000;}
 function signedScore(value){return `${value>=0?"+":""}${Number(value).toFixed(1)}`;}
-function ensureStats(){
-  gameState.stats=normalizeMatchStats(gameState.stats);
-  return gameState.stats;
-}
-function recordWinStats(winners,from=null,bustWinner=null,winDetails=[]){
-  const stats=ensureStats();
-  [...new Set(winners)].forEach(seat=>stats.wins[seat]=(stats.wins[seat]||0)+1);
-  if(from&&from!==winners[0])stats.dealIns[from]=(stats.dealIns[from]||0)+1;
-  if(bustWinner)stats.bustAwards[bustWinner]=(stats.bustAwards[bustWinner]||0)+1;
-  winDetails.forEach(detail=>{
-    const seat=detail.seat;
-    if(!SEATS.includes(seat))return;
-    (detail.info?.yaku||[]).forEach(y=>{
-      const name=String(y.name||"不明");
-      stats.yakuWins[seat][name]=(stats.yakuWins[seat][name]||0)+1;
-    });
-    stats.winEvents.push({
-      seat,
-      type:detail.win?.type||"unknown",
-      from:detail.win?.from||seat,
-      tile:detail.win?.tile||null,
-      yaku:(detail.info?.yaku||[]).map(y=>({name:y.name,han:y.han})),
-      totalHan:Number(detail.info?.totalHan)||0,
-      limit:detail.info?.limit||"",
-      score:Number(detail.info?.score?.ron||detail.info?.score?.total||0),
-      round:roundLabelText(),
-      recordedAt:new Date().toISOString(),
-      extensionData:{}
-    });
-  });
-  stats.winEvents=stats.winEvents.slice(-200);
-}
 function resultScoreBreakdown(row){
   const raw=rawScore(row.points);
   const bustCount=(gameState.stats?.bustAwards?.[row.seat]||0);
